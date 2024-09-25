@@ -1,0 +1,442 @@
+use std::fmt;
+use crate::helpers::*;
+
+const OUTS: usize = 2;
+
+#[derive(Debug)]
+pub struct Agent {
+	pub brain: Brain,
+	pub alive: bool,
+
+	inv_split_freq: usize
+}
+
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+
+/// neurons_in  : [size_diff, dist, angle_to_near] normalised to [-1, 1]
+/// neurons_out : [mov, rot] normalised to [-1, 1]
+#[derive(Clone)]
+pub struct Brain {
+	neurons_in     : [Neuron; 3],
+	neurons_hidden : Vec<Neuron>,
+	neurons_out    : [Neuron; 2],
+
+	generation: usize // for debugging/display
+}
+
+#[derive(Clone)]
+pub struct Neuron {
+	pub excitation: f64,
+	pub tick_drain: f64,
+
+	pub act_threshold: f64,
+
+	pub next_conn: Vec<OutwardConn>,
+
+	reachable: bool
+}
+
+#[derive(Clone, Debug)]
+pub struct OutwardConn {
+	pub dest_index: usize,
+	pub speed: usize, // currently unused
+	pub weight: f64,
+
+	relu: bool
+}
+
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+
+impl Agent {
+	pub fn new(agents: &Vec<Agent>) -> Agent {
+		// Prioritise spawning from existing generations
+		for parent in agents {
+			if parent.brain.generation > 4 {
+				return parent.spawn_child()
+			}
+		}
+
+		// But sometimes spawn an entirely new agent
+		let mut new_agent = Agent::with(Brain {
+			neurons_in     :     [Neuron::new(8), Neuron::new(8), Neuron::new(8)],
+			neurons_hidden : vec![Neuron::new(8), Neuron::new(8), Neuron::new(8),
+			                      Neuron::new(8), Neuron::new(8), Neuron::new(8)],
+			neurons_out    :     [Neuron::new(8),                 Neuron::new(8)],
+			generation: 0
+		}, 256);
+
+		for _ in 0..rand_range(0..8) {
+			new_agent = new_agent.mutate()
+		}
+
+		new_agent
+	}
+
+	pub fn maybe_split(agents: &mut Vec<Agent>) -> Option<Agent> {
+		// TODO: consider instead spawning children of all-time high scorers
+		for parent in agents {
+			// TODO: decide when to split based on a third neuron output instead?
+			if rand_range(0..=parent.inv_split_freq) == 0 {
+				// Spawn child agent
+				return Some(parent.spawn_child())
+			}
+		}
+
+		None
+	}
+
+	fn with(brain: Brain, freq: usize) -> Agent {
+		Agent {
+			brain,
+			alive: true,
+
+			inv_split_freq: freq
+		}
+	}
+
+	fn spawn_child(&self) -> Agent {
+		let freq = self.inv_split_freq;
+
+		let mut brain = self.brain.clone();
+
+		brain.generation += 1;
+
+		// Spawn identical copy of self in 1/3 of cases, otherwise mutate
+		return if rand_range(0..3) == 0 {
+			Agent::with(brain, freq)
+		} else {
+			Agent::with(brain, freq).mutate()
+		}
+	}
+
+	fn mutate(mut self) -> Self {
+		self.brain.mutate();
+
+		// Mutate inverse split frequency
+		if rand_range(0..self.inv_split_freq) == 0 {
+			if rand_range(0..=1) == 0 || self.inv_split_freq <= 1 {
+				self.inv_split_freq *= 2
+			} else {
+				self.inv_split_freq /= 2
+			}
+		} else {
+			self.inv_split_freq.add_bounded(rand_range(-1..=1))
+		}
+
+		self
+	}
+}
+
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+
+impl Brain {
+	pub fn input(&mut self) -> &mut [Neuron; 3] {&mut self.neurons_in}
+
+	pub fn update_neurons(&mut self) -> &[Neuron; 2] {
+		// Drain output neurons from previous excitation
+		for i in 0..OUTS {
+			self.neurons_out[i].drain()
+		}
+
+		for i in 0..self.neurons_in.len() {
+			self.neurons_in[i].reachable = true; // input neurons always reachable
+			self.update_neuron(i, true)
+		}
+
+		for i in 0..self.neurons_hidden.len() {
+			if self.neurons_hidden[i].reachable {
+				self.update_neuron(i, false);
+				self.neurons_hidden[i].drain()
+			}
+		}
+
+		&self.neurons_out
+	}
+
+	fn update_neuron(&mut self, i: usize, is_input: bool) {
+		let neuron = match is_input {
+			true => &self.neurons_in[i],
+			_    => &self.neurons_hidden[i]
+		};
+
+		let excitation = neuron.excitation;
+
+		// If neuron activated...
+		if excitation >= neuron.act_threshold {
+			// ... prepare all connections for activation
+			let mut activations = vec![];
+			for conn in &neuron.next_conn {
+				activations.push(conn.clone())
+			}
+
+			// ... and then activate the connections
+			for conn in &mut activations {
+				let recv_neuron = if conn.dest_index < OUTS {
+					&mut self.neurons_out[conn.dest_index]
+				} else {
+					&mut self.neurons_hidden[conn.dest_index - OUTS]
+				};
+
+				//let prev_recv_excitation = recv_neuron.excitation;
+
+				if conn.relu {
+					recv_neuron.excitation += conn.weight * excitation
+				} else {
+					recv_neuron.excitation += conn.weight;
+
+					// STDP (Spike-Timing-Dependent Plasticity)
+					// TODO: maybe make more realistic?
+					/*if prev_recv_excitation >= recv_neuron.act_threshold {
+						// Receiver already has fired => weaken connection
+						if conn.weight.abs() > 1.0 {
+							Neuron::expand_or_shrink(&mut conn.weight, -1.0)
+						}
+					} else if recv_neuron.excitation >= recv_neuron.act_threshold {
+						// Receiver firing thanks to this => strengthen connection
+						if conn.weight.abs() < 8.0 {
+							Neuron::expand_or_shrink(&mut conn.weight, 1.0)
+						}
+					}*/
+				}
+
+				recv_neuron.reachable = true
+			}
+
+			// ... and finally apply potential STDP changes
+			match is_input {
+				true => self.neurons_in[i].next_conn     = activations,
+				_    => self.neurons_hidden[i].next_conn = activations
+			}
+		}
+	}
+
+	fn mutate(&mut self) {
+		let mut recv_neurons = self.neurons_hidden.len() + OUTS;
+		let mut new_neurons  = 0;
+		let mut new_conns    = 0;
+
+		// Mutate input neurons
+		for neuron in &mut self.neurons_in {
+			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons)
+		}
+
+		// Mutate hidden neurons
+		for neuron in &mut self.neurons_hidden {
+			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons)
+		}
+
+		// Mutate output neurons
+		for neuron in &mut self.neurons_out {
+			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons)
+		}
+
+		// Add new hidden neurons
+		for _ in 0..new_neurons {
+			self.neurons_hidden.push(Neuron::new(recv_neurons));
+			recv_neurons += 1
+		}
+
+		// Add new outgoing connections
+		for _ in 0..new_conns {
+			let inps = self.neurons_in.len();
+			let hids = self.neurons_hidden.len();
+			let rand = rand_range(0..inps+hids+OUTS);
+
+			let neuron = if rand < inps {
+				&mut self.neurons_in[rand]
+			} else if rand < inps+hids {
+				&mut self.neurons_hidden[rand-inps]
+			} else {
+				&mut self.neurons_out[rand-inps-hids]
+			};
+
+			neuron.next_conn.push(OutwardConn::new(recv_neurons))
+		}
+	}
+}
+
+impl Neuron {
+	fn new(recv_neuron_count: usize) -> Neuron {
+		Neuron {
+			excitation: 0.0,
+			tick_drain: 1.0,
+
+			act_threshold: 0.0,
+
+			next_conn: vec![OutwardConn::new(recv_neuron_count)],
+
+			reachable: false
+		}
+	}
+
+	// TODO: maybe have mutation rate part of neuron properties?
+
+	// 33/67 if mutation or not
+	fn should_mutate_now() -> bool {rand_range(0..3) == 0}
+	// 67/33 if expansion or shrinking
+	fn should_expand_now() -> bool {rand_range(0..3) < 2}
+
+	fn mutate(&mut self,
+		new_neuron_count  : &mut usize,
+		new_conn_count    : &mut usize,
+		recv_neuron_count :      usize
+	) {
+		// Mutate neuron properties
+		if Neuron::should_mutate_now() {
+			self.tick_drain += [-1.0, 1.0][rand_range(0..=1)]}
+		if Neuron::should_mutate_now() {
+			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]}
+
+		// Mutate outgoing connections
+		for conn in &mut self.next_conn {
+			if Neuron::should_mutate_now() {
+				if rand_range(0..(2 + conn.weight.abs() as usize)) == 0 {
+					// Sometimes flip weight
+					conn.weight = -conn.weight
+				} else {
+					if Neuron::should_expand_now() {
+						// Sometimes expand weight or other stuff
+						match rand_range(0..3) {
+							0 => Neuron::expand_or_shrink(&mut conn.weight, 1.0),
+							1 => *new_conn_count += 1,
+							_ => *new_neuron_count += 1
+						}
+					} else {
+						// Sometimes shrink weight (which can effectively remove)
+						Neuron::expand_or_shrink(&mut conn.weight, -1.0)
+					}
+				}
+			}
+		}
+
+		// Remove effectively dead connections
+		self.next_conn.retain(|conn| (conn.weight*10.0).round() != 0.0);
+
+		// If this neuron is inactive, can be recycled
+		if self.next_conn.len() < 1 && *new_neuron_count > 0 {
+			*new_neuron_count -= 1;
+			self.next_conn.push(OutwardConn::new(recv_neuron_count))
+		}
+
+		// Reset excitation
+		self.excitation = 0.0;
+
+		// Assume not reachable until proven otherwise
+		self.reachable = false
+	}
+
+	fn drain(&mut self) {
+		Neuron::expand_or_shrink(&mut self.excitation, -self.tick_drain.abs())
+	}
+
+	fn expand_or_shrink(state: &mut f64, change: f64) {
+		// Move towards or away from a neutral state of 0
+		if *state > 0.0 {
+			*state += change;
+			if *state < 0.0 {
+				*state = 0.0
+			}
+		} else {
+			*state -= change;
+			if *state > 0.0 {
+				*state = 0.0
+			}
+		}
+	}
+}
+
+impl OutwardConn {
+	fn new(recv_neuron_count: usize) -> OutwardConn {
+		OutwardConn {
+			dest_index: rand_range(0..recv_neuron_count),
+			speed: 0,
+			weight: [-1.0, 1.0][rand_range(0..=1)],
+			relu: [false, true][rand_range(0..=1)]
+		}
+	}
+}
+
+impl fmt::Debug for Brain {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		let mut s = String::from("Brain {\n");
+
+		s += "\tneurons_in: [\n";
+		for neuron in &self.neurons_in {
+			s += &format!("\t\t{neuron:#?},\n")
+		}
+
+		let (mut unreachables, mut inactives) = (0, 0);
+
+		s += "\t],\n\n\tneurons_hidden: [\n";
+		for (i, neuron) in self.neurons_hidden.iter().enumerate() {
+			if neuron.reachable {
+				s += &format!("\t\t#{}: {neuron:#?},\n", i + OUTS)
+			} else {
+				unreachables += 1;
+				if neuron.next_conn.len() < 1 {
+					inactives += 1
+				}
+			}
+		}
+		s += &format!("\n\t\tUNREACHABLES: {unreachables} (inactive: {inactives})\n");
+
+		s += "\t],\n\n\tneurons_out: [\n";
+		for (i, neuron) in self.neurons_out.iter().enumerate() {
+			s += &format!("\t\t#{i}: {neuron:#?},\n")
+		}
+
+		write!(f, "{s}\t],\n\n\tgeneration: {},\n}}", self.generation)
+	}
+}
+
+impl fmt::Debug for Neuron {
+	// Print neuron debug info in a concise way
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		if !self.reachable {
+			if self.next_conn.len() < 1 {
+				write!(f, "➖ Neuron {{UNREACHABLE & INACTIVE}}")
+			} else {
+				write!(f, "➖ Neuron {{UNREACHABLE, conns={}}}", self.next_conn.len())
+			}
+		} else if self.next_conn.len() < 1 {
+			write!(f, "➖ Neuron {{INACTIVE}}")
+		} else {
+			let (is_at, act_at) = (self.excitation, self.act_threshold);
+
+			// Mark firing neurons (red = negative response, green = positive)
+			let s = String::from(
+				if is_at >= act_at {
+					let mut total_res = 0.0;
+					for conn in &self.next_conn {
+						total_res += conn.weight;  
+					}
+
+					if total_res < 0.0 {"🔴 "} else {"🟢 "}
+				} else {"✖️ "}
+			);
+
+			let mut s = format!("{s}Neuron {{IS@{:.1} | ACT@{:.1} | ", is_at, act_at);
+
+			let mut conn_iter = self.next_conn.iter().peekable();
+			while let Some(conn) = conn_iter.next() {
+				let relu = if conn.relu {"*"} else {""};
+
+				s += &format!("({relu}{:.1})->#{}", conn.weight, conn.dest_index);
+				if !conn_iter.peek().is_none() {
+					s += ", "
+				}
+			}
+
+			write!(f, "{s}}}")
+		}
+	}
+}
