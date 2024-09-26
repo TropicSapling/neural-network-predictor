@@ -8,8 +8,7 @@ const OUTS: usize = 2;
 pub struct Agent {
 	pub brain       : Brain,
 	pub predictions : [f64; INPS],
-
-	inv_split_freq: usize
+	pub error       : [f64; INPS]
 }
 
 
@@ -55,10 +54,12 @@ pub struct OutwardConn {
 
 
 impl Agent {
-	pub fn new(agents: &Vec<Agent>) -> Agent {
+	pub fn new(agents: &Vec<Agent>) -> Self {
 		// Prioritise spawning from existing generations
+		let total_err = 0.0; // placeholder
+		let errs = vec![]; // placeholder
 		for parent in agents {
-			if parent.brain.generation > 4 {
+			if rand_range(0.0..=total_err) < parent.share(&errs, total_err) {
 				return parent.spawn_child()
 			}
 		}
@@ -72,7 +73,7 @@ impl Agent {
 			],
 			neurons_out: core::array::from_fn(|_| Neuron::new(6+OUTS)),
 			generation: 0
-		}, 256);
+		});
 
 		for _ in 0..rand_range(0..8) {
 			new_agent = new_agent.mutate()
@@ -81,57 +82,40 @@ impl Agent {
 		new_agent
 	}
 
-	pub fn maybe_split(agents: &mut Vec<Agent>) -> Option<Agent> {
-		// TODO: consider instead spawning children of all-time high scorers
-		for parent in agents {
-			// TODO: decide when to split based on a third neuron output instead?
-			if rand_range(0..=parent.inv_split_freq) == 0 {
-				// Spawn child agent
-				return Some(parent.spawn_child())
-			}
+	// See error_share_formula.PNG
+	fn share(&self, errs: &Vec<f64>, err_sum: f64) -> f64 {
+		// TODO: fix so works with not only first but both outputs!
+		let mut frac_sum = 0.0;
+		for err in errs {
+			frac_sum += err_sum/err
 		}
 
-		None
-	}
+		(err_sum/self.error[0]) / frac_sum
+	} 
 
-	fn with(brain: Brain, freq: usize) -> Agent {
+	fn with(brain: Brain) -> Self {
 		Agent {
 			brain,
 			predictions: [0.0; INPS],
-
-			inv_split_freq: freq
+			error: [0.0; INPS]
 		}
 	}
 
-	fn spawn_child(&self) -> Agent {
-		let freq = self.inv_split_freq;
-
+	fn spawn_child(&self) -> Self {
 		let mut brain = self.brain.clone();
 
 		brain.generation += 1;
 
 		// Spawn identical copy of self in 1/3 of cases, otherwise mutate
 		return if rand_range(0..3) == 0 {
-			Agent::with(brain, freq)
+			Agent::with(brain)
 		} else {
-			Agent::with(brain, freq).mutate()
+			Agent::with(brain).mutate()
 		}
 	}
 
 	fn mutate(mut self) -> Self {
 		self.brain.mutate();
-
-		// Mutate inverse split frequency
-		if rand_range(0..self.inv_split_freq) == 0 {
-			if rand_range(0..=1) == 0 || self.inv_split_freq <= 1 {
-				self.inv_split_freq *= 2
-			} else {
-				self.inv_split_freq /= 2
-			}
-		} else {
-			self.inv_split_freq.add_bounded(rand_range(-1..=1))
-		}
-
 		self
 	}
 }
@@ -267,7 +251,7 @@ impl Brain {
 }
 
 impl Neuron {
-	fn new(recv_neuron_count: usize) -> Neuron {
+	fn new(recv_neuron_count: usize) -> Self {
 		Neuron {
 			excitation: 0.0,
 			tick_drain: 1.0,
@@ -357,7 +341,7 @@ impl Neuron {
 }
 
 impl OutwardConn {
-	fn new(recv_neuron_count: usize) -> OutwardConn {
+	fn new(recv_neuron_count: usize) -> Self {
 		OutwardConn {
 			dest_index: rand_range(0..recv_neuron_count),
 			speed: 0,
