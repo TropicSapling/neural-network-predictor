@@ -1,12 +1,13 @@
 use std::fmt;
 use crate::helpers::*;
 
+const INPS: usize = 365;
 const OUTS: usize = 2;
 
 #[derive(Debug)]
 pub struct Agent {
-	pub brain: Brain,
-	pub alive: bool,
+	pub brain       : Brain,
+	pub predictions : [f64; INPS],
 
 	inv_split_freq: usize
 }
@@ -16,13 +17,13 @@ pub struct Agent {
 ////////////////////////////////////////////////////////////////
 
 
-/// neurons_in  : [size_diff, dist, angle_to_near] normalised to [-1, 1]
-/// neurons_out : [mov, rot] normalised to [-1, 1]
+/// neurons_inp: 365 numbers (normalise to [-1, 1]? if so how?)
+/// neurons_out: [bp, sp] (normalise to [-1, 1]? if so how?)
 #[derive(Clone)]
 pub struct Brain {
-	neurons_in     : [Neuron; 3],
-	neurons_hidden : Vec<Neuron>,
-	neurons_out    : [Neuron; 2],
+	neurons_inp: [Neuron; INPS],
+	neurons_hid: Vec<Neuron>,
+	neurons_out: [Neuron; OUTS],
 
 	generation: usize // for debugging/display
 }
@@ -64,10 +65,12 @@ impl Agent {
 
 		// But sometimes spawn an entirely new agent
 		let mut new_agent = Agent::with(Brain {
-			neurons_in     :     [Neuron::new(8), Neuron::new(8), Neuron::new(8)],
-			neurons_hidden : vec![Neuron::new(8), Neuron::new(8), Neuron::new(8),
-			                      Neuron::new(8), Neuron::new(8), Neuron::new(8)],
-			neurons_out    :     [Neuron::new(8),                 Neuron::new(8)],
+			neurons_inp: core::array::from_fn(|_| Neuron::new(6+OUTS)),
+			neurons_hid: vec![
+				Neuron::new(6+OUTS), Neuron::new(6+OUTS), Neuron::new(6+OUTS),
+				Neuron::new(6+OUTS), Neuron::new(6+OUTS), Neuron::new(6+OUTS)
+			],
+			neurons_out: core::array::from_fn(|_| Neuron::new(6+OUTS)),
 			generation: 0
 		}, 256);
 
@@ -94,7 +97,7 @@ impl Agent {
 	fn with(brain: Brain, freq: usize) -> Agent {
 		Agent {
 			brain,
-			alive: true,
+			predictions: [0.0; INPS],
 
 			inv_split_freq: freq
 		}
@@ -139,23 +142,23 @@ impl Agent {
 
 
 impl Brain {
-	pub fn input(&mut self) -> &mut [Neuron; 3] {&mut self.neurons_in}
+	pub fn input(&mut self) -> &mut [Neuron; INPS] {&mut self.neurons_inp}
 
-	pub fn update_neurons(&mut self) -> &[Neuron; 2] {
+	pub fn update_neurons(&mut self) -> &[Neuron; OUTS] {
 		// Drain output neurons from previous excitation
 		for i in 0..OUTS {
 			self.neurons_out[i].drain()
 		}
 
-		for i in 0..self.neurons_in.len() {
-			self.neurons_in[i].reachable = true; // input neurons always reachable
+		for i in 0..self.neurons_inp.len() {
+			self.neurons_inp[i].reachable = true; // input neurons always reachable
 			self.update_neuron(i, true)
 		}
 
-		for i in 0..self.neurons_hidden.len() {
-			if self.neurons_hidden[i].reachable {
+		for i in 0..self.neurons_hid.len() {
+			if self.neurons_hid[i].reachable {
 				self.update_neuron(i, false);
-				self.neurons_hidden[i].drain()
+				self.neurons_hid[i].drain()
 			}
 		}
 
@@ -164,8 +167,8 @@ impl Brain {
 
 	fn update_neuron(&mut self, i: usize, is_input: bool) {
 		let neuron = match is_input {
-			true => &self.neurons_in[i],
-			_    => &self.neurons_hidden[i]
+			true => &self.neurons_inp[i],
+			_    => &self.neurons_hid[i]
 		};
 
 		let excitation = neuron.excitation;
@@ -183,7 +186,7 @@ impl Brain {
 				let recv_neuron = if conn.dest_index < OUTS {
 					&mut self.neurons_out[conn.dest_index]
 				} else {
-					&mut self.neurons_hidden[conn.dest_index - OUTS]
+					&mut self.neurons_hid[conn.dest_index - OUTS]
 				};
 
 				//let prev_recv_excitation = recv_neuron.excitation;
@@ -213,24 +216,24 @@ impl Brain {
 
 			// ... and finally apply potential STDP changes
 			match is_input {
-				true => self.neurons_in[i].next_conn     = activations,
-				_    => self.neurons_hidden[i].next_conn = activations
+				true => self.neurons_inp[i].next_conn = activations,
+				_    => self.neurons_hid[i].next_conn = activations
 			}
 		}
 	}
 
 	fn mutate(&mut self) {
-		let mut recv_neurons = self.neurons_hidden.len() + OUTS;
+		let mut recv_neurons = self.neurons_hid.len() + OUTS;
 		let mut new_neurons  = 0;
 		let mut new_conns    = 0;
 
 		// Mutate input neurons
-		for neuron in &mut self.neurons_in {
+		for neuron in &mut self.neurons_inp {
 			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons)
 		}
 
 		// Mutate hidden neurons
-		for neuron in &mut self.neurons_hidden {
+		for neuron in &mut self.neurons_hid {
 			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons)
 		}
 
@@ -241,22 +244,21 @@ impl Brain {
 
 		// Add new hidden neurons
 		for _ in 0..new_neurons {
-			self.neurons_hidden.push(Neuron::new(recv_neurons));
+			self.neurons_hid.push(Neuron::new(recv_neurons));
 			recv_neurons += 1
 		}
 
 		// Add new outgoing connections
 		for _ in 0..new_conns {
-			let inps = self.neurons_in.len();
-			let hids = self.neurons_hidden.len();
-			let rand = rand_range(0..inps+hids+OUTS);
+			let hids = self.neurons_hid.len();
+			let rand = rand_range(0..INPS+hids+OUTS);
 
-			let neuron = if rand < inps {
-				&mut self.neurons_in[rand]
-			} else if rand < inps+hids {
-				&mut self.neurons_hidden[rand-inps]
+			let neuron = if rand < INPS {
+				&mut self.neurons_inp[rand]
+			} else if rand < INPS+hids {
+				&mut self.neurons_hid[rand-INPS]
 			} else {
-				&mut self.neurons_out[rand-inps-hids]
+				&mut self.neurons_out[rand-INPS-hids]
 			};
 
 			neuron.next_conn.push(OutwardConn::new(recv_neurons))
@@ -369,15 +371,15 @@ impl fmt::Debug for Brain {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let mut s = String::from("Brain {\n");
 
-		s += "\tneurons_in: [\n";
-		for neuron in &self.neurons_in {
+		s += "\tneurons_inp: [\n";
+		for neuron in &self.neurons_inp {
 			s += &format!("\t\t{neuron:#?},\n")
 		}
 
 		let (mut unreachables, mut inactives) = (0, 0);
 
-		s += "\t],\n\n\tneurons_hidden: [\n";
-		for (i, neuron) in self.neurons_hidden.iter().enumerate() {
+		s += "\t],\n\n\tneurons_hid: [\n";
+		for (i, neuron) in self.neurons_hid.iter().enumerate() {
 			if neuron.reachable {
 				s += &format!("\t\t#{}: {neuron:#?},\n", i + OUTS)
 			} else {
