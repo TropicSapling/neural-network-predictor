@@ -6,7 +6,8 @@ pub const OUTS: usize = 2;
 
 #[derive(Debug)]
 pub struct Agent {
-	pub brain: Brain
+	pub brain  : Brain,
+	pub inverr : f64
 }
 
 
@@ -52,7 +53,17 @@ pub struct OutwardConn {
 
 
 impl Agent {
-	pub fn new() -> Self {
+	pub fn new(agents: &Vec<Agent>, invsum: f64) -> Self {
+		// Prioritise spawning from existing generations
+		for i in 0..agents.len() {
+			// See error_share_formula.PNG
+			let share = agents[i].inverr / invsum;
+			if rand_range(0.0..1.0) < share {
+				return agents[i].spawn_child()
+			}
+		}
+
+		// But sometimes spawn an entirely new agent
 		let mut new_agent = Agent::with(Brain {
 			neurons_inp: core::array::from_fn(|_| Neuron::new(6+OUTS)),
 			neurons_hid: vec![
@@ -84,7 +95,7 @@ impl Agent {
 	}
 
 	fn with(brain: Brain) -> Self {
-		Agent {brain}
+		Agent {brain, inverr: 0.0}
 	}
 
 	fn mutate(mut self) -> Self {

@@ -1,57 +1,50 @@
-use crate::{helpers::*, structs::*};
+use crate::structs::*;
 
-pub fn update_ai(agents: &mut Vec<Agent>, target: f64, highscore: &mut f64) {
-	let (mut predictions, mut inverr, mut invsum) = (vec![], vec![], 0.0);
-	for i in 0..agents.len() {
-		let agent = &mut agents[i];
-		let input = agent.brain.input();
+pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) {
+	if agent.inverr == 0.0 {
+		let mut err0 = 1.0;
+		let mut err1 = 0.0;
+		// Run until we get a "final" output error
+		while err1 != err0 {
+			let input = agent.brain.input();
 
-		// INPUT
-		for inp in input {
-			// Set input to always fire
-			(inp.excitation, inp.act_threshold) = (0.0, 0.0);
+			// INPUT
+			for inp in input {
+				// Set input to always fire
+				(inp.excitation, inp.act_threshold) = (0.0, 0.0);
 
-			// Set input weights
-			for conn in &mut inp.next_conn {
-				conn.weight = 123.0 // placeholder
-			}
-		}
-
-		// INPUT -> ... -> OUTPUT
-		let output = agent.brain.update_neurons();
-
-		// OUTPUT
-		predictions.push([0.0; OUTS]);
-		for (n, out) in output.iter().enumerate() {
-			if out.excitation >= out.act_threshold {
-				for conn in &out.next_conn {
-					predictions[i][n] += conn.weight
+				// Set input weights
+				for conn in &mut inp.next_conn {
+					conn.weight = 4.0 // placeholder
 				}
 			}
+
+			// INPUT -> ... -> OUTPUT
+			let output = agent.brain.update_neurons();
+
+			// OUTPUT
+			let mut predictions = [0.0; OUTS];
+			for (n, out) in output.iter().enumerate() {
+				if out.excitation >= out.act_threshold {
+					for conn in &out.next_conn {
+						predictions[n] += conn.weight
+					}
+				}
+			}
+
+			// Calculate absolute error
+			err0 = err1;
+			err1 = (predictions[1] - predictions[0] - target).abs();
 		}
 
-		// Calculate absolute error...
-		let error = (predictions[i][1] - predictions[i][0] - target).abs();
-		// ... and record its inverse
-		inverr.push(1.0/error);
-		invsum += 1.0/error
+		// Record error inverse
+		agent.inverr = 1.0/err1;
+		*invsum += agent.inverr;
+
+		// Record and print if new highscore
+		if agent.inverr > *h {
+			*h = agent.inverr;
+			println!("error={}", 1.0 / *h)
+		}
 	}
-
-	// Prioritise spawning from existing generations
-	for i in 0..inverr.len() {
-		// See error_share_formula.PNG
-		let share = inverr[i]/invsum;
-		if rand_range(0.0..1.0) < share {
-			agents.push(agents[i].spawn_child());
-			break
-		}
-
-		if inverr[i] > *highscore {
-			*highscore = inverr[i];
-			println!("error={}", 1.0 / *highscore)
-		}
-	}
-
-	// But sometimes spawn an entirely new agent
-	agents.push(Agent::new())
 }
