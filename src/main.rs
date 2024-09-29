@@ -11,9 +11,10 @@ fn print_agent(agents: &Vec<Agent>, agent: &Agent) {
 
 fn main() {
 	let mut agents = vec![];
+	let mut highscore = 0.0;
 	for _ in 0..256 {
-		update_ai(&mut agents, 4.56 - 1.23 /* placeholder */)
+		update_ai(&mut agents, 456.0 - 123.0 /* placeholder */, &mut highscore)
 	}
 
-	print_agent(&agents, agents.last().unwrap())
+	//print_agent(&agents, agents.last().unwrap())
 }

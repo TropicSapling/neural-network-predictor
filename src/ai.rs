@@ -1,6 +1,6 @@
 use crate::{helpers::*, structs::*};
 
-pub fn update_ai(agents: &mut Vec<Agent>, target: f64) {
+pub fn update_ai(agents: &mut Vec<Agent>, target: f64, highscore: &mut f64) {
 	let (mut predictions, mut inverr, mut invsum) = (vec![], vec![], 0.0);
 	for i in 0..agents.len() {
 		let agent = &mut agents[i];
@@ -41,10 +41,14 @@ pub fn update_ai(agents: &mut Vec<Agent>, target: f64) {
 	for i in 0..inverr.len() {
 		// See error_share_formula.PNG
 		let share = inverr[i]/invsum;
-		if rand_range(0.0..=invsum) < share {
-			println!("{}", invsum/(inverr.len() as f64));
+		if rand_range(0.0..1.0) < share {
 			agents.push(agents[i].spawn_child());
 			break
+		}
+
+		if inverr[i] > *highscore {
+			*highscore = inverr[i];
+			println!("error={}", 1.0 / *highscore)
 		}
 	}
 
