@@ -1,14 +1,12 @@
 use std::fmt;
 use crate::helpers::*;
 
-const INPS: usize = 365;
-const OUTS: usize = 2;
+pub const INPS: usize = 365;
+pub const OUTS: usize = 2;
 
 #[derive(Debug)]
 pub struct Agent {
-	pub brain       : Brain,
-	pub predictions : [f64; INPS],
-	pub error       : [f64; INPS]
+	pub brain: Brain
 }
 
 
@@ -54,17 +52,7 @@ pub struct OutwardConn {
 
 
 impl Agent {
-	pub fn new(agents: &Vec<Agent>) -> Self {
-		// Prioritise spawning from existing generations
-		let total_err = 0.0; // placeholder
-		let errs = vec![]; // placeholder
-		for parent in agents {
-			if rand_range(0.0..=total_err) < parent.share(&errs, total_err) {
-				return parent.spawn_child()
-			}
-		}
-
-		// But sometimes spawn an entirely new agent
+	pub fn new() -> Self {
 		let mut new_agent = Agent::with(Brain {
 			neurons_inp: core::array::from_fn(|_| Neuron::new(6+OUTS)),
 			neurons_hid: vec![
@@ -82,26 +70,7 @@ impl Agent {
 		new_agent
 	}
 
-	// See error_share_formula.PNG
-	fn share(&self, errs: &Vec<f64>, err_sum: f64) -> f64 {
-		// TODO: fix so works with not only first but both outputs!
-		let mut frac_sum = 0.0;
-		for err in errs {
-			frac_sum += err_sum/err
-		}
-
-		(err_sum/self.error[0]) / frac_sum
-	} 
-
-	fn with(brain: Brain) -> Self {
-		Agent {
-			brain,
-			predictions: [0.0; INPS],
-			error: [0.0; INPS]
-		}
-	}
-
-	fn spawn_child(&self) -> Self {
+	pub fn spawn_child(&self) -> Self {
 		let mut brain = self.brain.clone();
 
 		brain.generation += 1;
@@ -112,6 +81,10 @@ impl Agent {
 		} else {
 			Agent::with(brain).mutate()
 		}
+	}
+
+	fn with(brain: Brain) -> Self {
+		Agent {brain}
 	}
 
 	fn mutate(mut self) -> Self {
