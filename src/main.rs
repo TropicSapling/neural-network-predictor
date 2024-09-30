@@ -16,6 +16,7 @@ fn main() {
 	for _ in 0..16384 {
 		agents.push(Agent::new(&agents, invsum));
 		update_ai(agents.last_mut().unwrap(), 456.0 - 123.0, &mut invsum, &mut hs)
+		// TODO: remove agent with worst error 1/3 of the time
 	}
 
 	print_agent(&agents, agents.last().unwrap())
