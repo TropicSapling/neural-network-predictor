@@ -5,7 +5,9 @@ pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) 
 		let mut err0 = 1.0;
 		let mut err1 = 0.0;
 		// Run until we get a "final" output error
-		while err1 != err0 {
+		for _ in 0..4 {
+			if err1 == err0 {break}
+
 			let input = agent.brain.input();
 
 			// INPUT
@@ -15,7 +17,7 @@ pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) 
 
 				// Set input weights
 				for conn in &mut inp.next_conn {
-					conn.weight = 4.0 // placeholder
+					conn.weight = 1.0 // placeholder
 				}
 			}
 
@@ -27,7 +29,11 @@ pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) 
 			for (n, out) in output.iter().enumerate() {
 				if out.excitation >= out.act_threshold {
 					for conn in &out.next_conn {
-						predictions[n] += conn.weight
+						if conn.relu {
+							predictions[n] += conn.weight * out.excitation
+						} else {
+							predictions[n] += conn.weight
+						}
 					}
 				}
 			}

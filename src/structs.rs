@@ -43,8 +43,7 @@ pub struct OutwardConn {
 	pub dest_index: usize,
 	pub speed: usize, // currently unused
 	pub weight: f64,
-
-	relu: bool
+	pub relu: bool
 }
 
 
@@ -55,15 +54,17 @@ pub struct OutwardConn {
 impl Agent {
 	pub fn new(agents: &Vec<Agent>, invsum: f64) -> Self {
 		// Prioritise spawning from existing generations
-		for i in 0..agents.len() {
-			// See error_share_formula.PNG
-			let share = agents[i].inverr / invsum;
-			if rand_range(0.0..1.0) < share {
-				return agents[i].spawn_child()
+		for _ in 0..7 {
+			for parent in agents {
+				// See error_share_formula.PNG
+				let share = parent.inverr / invsum;
+				if rand_range(0.0..1.0) < share || share.is_nan() {
+					return parent.spawn_child()
+				}
 			}
 		}
 
-		// But sometimes spawn an entirely new agent (CHANCE: 1/e ~ 36.8%)
+		// But sometimes spawn an entirely new agent (CHANCE: 1/e^7 ~ 0.09%)
 		let mut new_agent = Agent::with(Brain {
 			neurons_inp: core::array::from_fn(|_| Neuron::new(6+OUTS)),
 			neurons_hid: vec![
