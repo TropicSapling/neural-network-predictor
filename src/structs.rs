@@ -63,7 +63,7 @@ impl Agent {
 			}
 		}
 
-		// But sometimes spawn an entirely new agent
+		// But sometimes spawn an entirely new agent (CHANCE: 1/e ~ 36.8%)
 		let mut new_agent = Agent::with(Brain {
 			neurons_inp: core::array::from_fn(|_| Neuron::new(6+OUTS)),
 			neurons_hid: vec![
