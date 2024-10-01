@@ -23,7 +23,7 @@ pub struct Brain {
 	neurons_hid: Vec<Neuron>,
 	neurons_out: [Neuron; OUTS],
 
-	generation: usize // for debugging/display
+	pub generation: usize // for debugging/display
 }
 
 #[derive(Clone)]
@@ -341,14 +341,14 @@ impl fmt::Debug for Brain {
 		let mut s = String::from("Brain {\n");
 
 		s += "\tneurons_inp: [\n";
-		for neuron in &self.neurons_inp {
+		/*for neuron in &self.neurons_inp {
 			s += &format!("\t\t{neuron:#?},\n")
-		}
+		}*/ s += "\t\t...\n";
 
 		let (mut unreachables, mut inactives) = (0, 0);
 
 		s += "\t],\n\n\tneurons_hid: [\n";
-		for (i, neuron) in self.neurons_hid.iter().enumerate() {
+		/*for (i, neuron) in self.neurons_hid.iter().enumerate() {
 			if neuron.reachable {
 				s += &format!("\t\t#{}: {neuron:#?},\n", i + OUTS)
 			} else {
@@ -357,7 +357,7 @@ impl fmt::Debug for Brain {
 					inactives += 1
 				}
 			}
-		}
+		}*/ s += "\t\t...\n";
 		s += &format!("\n\t\tUNREACHABLES: {unreachables} (inactive: {inactives})\n");
 
 		s += "\t],\n\n\tneurons_out: [\n";
