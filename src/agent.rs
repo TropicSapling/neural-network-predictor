@@ -48,7 +48,6 @@ pub struct Neuron {
 #[derive(Clone, Debug)]
 pub struct OutwardConn {
 	pub dest_index: usize,
-	pub speed: usize, // currently unused
 	pub weight: f64,
 	pub relu: bool
 }
@@ -361,7 +360,6 @@ impl OutwardConn {
 	fn new(recv_neuron_count: usize) -> Self {
 		OutwardConn {
 			dest_index: rand_range(0..recv_neuron_count),
-			speed: 0,
 			weight: [-1.0, 1.0][rand_range(0..=1)],
 			relu: [false, true][rand_range(0..=1)]
 		}
@@ -375,21 +373,22 @@ impl fmt::Debug for Brain {
 		s += "\tneurons_inp: [\n";
 		/*for neuron in &self.neurons_inp {
 			s += &format!("\t\t{neuron:#?},\n")
-		}*/ s += "\t\t...\n";
+		}*/ s += &format!("\t\t... ({})\n", INPS);
 
 		let (mut unreachables, mut inactives) = (0, 0);
 
 		s += "\t],\n\n\tneurons_hid: [\n";
-		/*for (i, neuron) in self.neurons_hid.iter().enumerate() {
+		//for (i, neuron) in self.neurons_hid.iter().enumerate() {
+		for neuron in self.neurons_hid.iter() {
 			if neuron.reachable {
-				s += &format!("\t\t#{}: {neuron:#?},\n", i + OUTS)
+				//s += &format!("\t\t#{}: {neuron:#?},\n", i + OUTS)
 			} else {
 				unreachables += 1;
 				if neuron.next_conn.len() < 1 {
 					inactives += 1
 				}
 			}
-		}*/ s += "\t\t...\n";
+		} s += &format!("\t\t... ({})\n", self.neurons_hid.len());
 		s += &format!("\n\t\tUNREACHABLES: {unreachables} (inactive: {inactives})\n");
 
 		s += "\t],\n\n\tneurons_out: [\n";

@@ -31,7 +31,7 @@ pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) 
 		// Record and print if new highscore
 		if agent.inverr > *h {
 			*h = agent.inverr;
-			println!("error={}, gen={}", 1.0 / *h, agent.brain.generation)
+			println!("TOP-ERR={}, gen={}", 1.0 / *h, agent.brain.generation)
 		}
 	}
 }
