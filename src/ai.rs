@@ -1,4 +1,4 @@
-use crate::structs::*;
+use crate::{agent::*, input, output};
 
 pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) {
 	if agent.inverr == 0.0 {
@@ -8,39 +8,20 @@ pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) 
 		for _ in 0..4 {
 			if err1 == err0 {break}
 
-			let input = agent.brain.input();
+			let mut predictions = [0.0; OUTS];
 
-			// INPUT
-			for inp in input {
-				// Set input to always fire
-				(inp.excitation, inp.act_threshold) = (0.0, 0.0);
+			// Input
+			input::assign(agent.brain.input());
 
-				// Set input weights
-				for conn in &mut inp.next_conn {
-					conn.weight = 1.0 // placeholder
-				}
-			}
-
-			// INPUT -> ... -> OUTPUT
+			// Input -> ... -> Output
 			let output = agent.brain.update_neurons();
 
-			// OUTPUT
-			let mut predictions = [0.0; OUTS];
-			for (n, out) in output.iter().enumerate() {
-				if out.excitation >= out.act_threshold {
-					for conn in &out.next_conn {
-						if conn.relu {
-							predictions[n] += conn.weight * out.excitation
-						} else {
-							predictions[n] += conn.weight
-						}
-					}
-				}
-			}
+			// Output
+			output::assign(&mut predictions, output);
 
 			// Calculate absolute error
 			err0 = err1;
-			err1 = (predictions[1] - predictions[0] - target).abs();
+			err1 = (predictions[1] - predictions[0] - target).abs()
 		}
 
 		// Record error inverse

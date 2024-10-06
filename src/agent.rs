@@ -1,8 +1,13 @@
 use std::fmt;
+
 use crate::helpers::*;
 
 pub const INPS: usize = 365;
 pub const OUTS: usize = 2;
+
+macro_rules! arr {
+	($elem:expr) => (core::array::from_fn(|_| $elem))
+}
 
 #[derive(Debug)]
 pub struct Agent {
@@ -35,7 +40,9 @@ pub struct Neuron {
 
 	pub next_conn: Vec<OutwardConn>,
 
-	reachable: bool
+	reachable: bool,
+
+	inv_mut: usize
 }
 
 #[derive(Clone, Debug)]
@@ -66,16 +73,13 @@ impl Agent {
 
 		// But sometimes spawn an entirely new agent (CHANCE: 1/e^7 ~ 0.09%)
 		let mut new_agent = Agent::with(Brain {
-			neurons_inp: core::array::from_fn(|_| Neuron::new(6+OUTS)),
-			neurons_hid: vec![
-				Neuron::new(6+OUTS), Neuron::new(6+OUTS), Neuron::new(6+OUTS),
-				Neuron::new(6+OUTS), Neuron::new(6+OUTS), Neuron::new(6+OUTS)
-			],
-			neurons_out: core::array::from_fn(|_| Neuron::new(6+OUTS)),
+			neurons_inp: arr![Neuron::new(6+OUTS)   ],
+			neurons_hid: vec![Neuron::new(6+OUTS); 6],
+			neurons_out: arr![Neuron::new(6+OUTS)   ],
 			generation: 0
 		});
 
-		for _ in 0..rand_range(0..8) {
+		for _ in 0..rand_range(0..32) {
 			new_agent = new_agent.mutate()
 		}
 
@@ -85,12 +89,11 @@ impl Agent {
 	pub fn spawn_child(&self) -> Self {
 		let mut brain = self.brain.clone();
 
-		brain.generation += 1;
-
 		// Spawn identical copy of self in 1/3 of cases, otherwise mutate
 		return if rand_range(0..3) == 0 {
 			Agent::with(brain)
 		} else {
+			brain.generation += 1;
 			Agent::with(brain).mutate()
 		}
 	}
@@ -198,7 +201,12 @@ impl Brain {
 
 		// Mutate input neurons
 		for neuron in &mut self.neurons_inp {
-			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons)
+			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons);
+
+			// Ensure there is always at least one outgoing connection left
+			if neuron.next_conn.len() < 1 {
+				neuron.next_conn.push(OutwardConn::new(recv_neurons))
+			}
 		}
 
 		// Mutate hidden neurons
@@ -208,7 +216,12 @@ impl Brain {
 
 		// Mutate output neurons
 		for neuron in &mut self.neurons_out {
-			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons)
+			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons);
+
+			// Ensure there is always at least one outgoing connection left
+			if neuron.next_conn.len() < 1 {
+				neuron.next_conn.push(OutwardConn::new(recv_neurons))
+			}
 		}
 
 		// Add new hidden neurons
@@ -245,16 +258,18 @@ impl Neuron {
 
 			next_conn: vec![OutwardConn::new(recv_neuron_count)],
 
-			reachable: false
+			reachable: false,
+
+			inv_mut: 2
 		}
 	}
 
-	// TODO: maybe have mutation rate part of neuron properties?
-
-	// 33/67 if mutation or not
-	fn should_mutate_now() -> bool {rand_range(0..3) == 0}
-	// 67/33 if expansion or shrinking
-	fn should_expand_now() -> bool {rand_range(0..3) < 2}
+	// By default 11/89 if mutation of mutation rate or not
+	fn should_mutate_mut(inv_mut: usize) -> bool {rand_range(0..=inv_mut.pow(3)) == 0}
+	// By default 33/67 if mutation or not
+	fn should_mutate_now(inv_mut: usize) -> bool {rand_range(0..=inv_mut) == 0}
+	// Always 50/50 if expansion or shrinking
+	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
 
 	fn mutate(&mut self,
 		new_neuron_count  : &mut usize,
@@ -262,14 +277,16 @@ impl Neuron {
 		recv_neuron_count :      usize
 	) {
 		// Mutate neuron properties
-		if Neuron::should_mutate_now() {
+		if Neuron::should_mutate_mut(self.inv_mut) {
+			self.inv_mut.add_bounded([-1, 1][rand_range(0..=1)])}
+		if Neuron::should_mutate_now(self.inv_mut) {
 			self.tick_drain += [-1.0, 1.0][rand_range(0..=1)]}
-		if Neuron::should_mutate_now() {
+		if Neuron::should_mutate_now(self.inv_mut) {
 			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]}
 
 		// Mutate outgoing connections
 		for conn in &mut self.next_conn {
-			if Neuron::should_mutate_now() {
+			if Neuron::should_mutate_now(self.inv_mut) {
 				if rand_range(0..(2 + conn.weight.abs() as usize)) == 0 {
 					// Sometimes flip weight
 					conn.weight = -conn.weight
@@ -292,7 +309,7 @@ impl Neuron {
 		// Remove effectively dead connections
 		self.next_conn.retain(|conn| (conn.weight*10.0).round() != 0.0);
 
-		// If this neuron is inactive, can be recycled
+		// If this neuron is inactive, try recycling it
 		if self.next_conn.len() < 1 && *new_neuron_count > 0 {
 			*new_neuron_count -= 1;
 			self.next_conn.push(OutwardConn::new(recv_neuron_count))
@@ -388,14 +405,17 @@ impl fmt::Debug for Neuron {
 				if is_at >= act_at {
 					let mut total_res = 0.0;
 					for conn in &self.next_conn {
-						total_res += conn.weight;  
+						total_res += conn.weight
 					}
 
 					if total_res < 0.0 {"🔴 "} else {"🟢 "}
 				} else {"✖️ "}
 			);
 
-			let mut s = format!("{s}Neuron {{IS@{:.1} | ACT@{:.1} | ", is_at, act_at);
+			let mut s = format!(
+				"{s}Neuron {{IS@{:.1} | ACT@{:.1} | INVMUT@{} | ",
+				             is_at,     act_at,     self.inv_mut
+			);
 
 			let mut conn_iter = self.next_conn.iter().peekable();
 			while let Some(conn) = conn_iter.next() {

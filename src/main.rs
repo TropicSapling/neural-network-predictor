@@ -1,8 +1,11 @@
-mod structs;
 mod helpers;
-mod ai;
 
-use structs::*;
+mod ai;
+mod agent;
+mod input;
+mod output;
+
+use agent::*;
 use ai::update_ai;
 
 fn print_agent(agents: &Vec<Agent>, agent: &Agent) {
