@@ -21,7 +21,7 @@ fn main() {
 		if invsum == f64::INFINITY {break}
 
 		agents.push(Agent::new(&agents, invsum));
-		update_ai(agents.last_mut().unwrap(), 456.0 - 123.0, &mut invsum, &mut hs)
+		update_ai(agents.last_mut().unwrap(), 1234.5, &mut invsum, &mut hs)
 		// TODO: remove agent with worst error 1/3 of the time
 	}
 
