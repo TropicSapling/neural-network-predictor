@@ -72,9 +72,9 @@ impl Agent {
 
 		// But sometimes spawn an entirely new agent (CHANCE: 1/e^7 ~ 0.09%)
 		let mut new_agent = Agent::with(Brain {
-			neurons_inp: arr![Neuron::new(6+OUTS)   ],
-			neurons_hid: vec![Neuron::new(6+OUTS); 6],
-			neurons_out: arr![Neuron::new(6+OUTS)   ],
+			neurons_inp: arr![Neuron::new(1+OUTS)   ],
+			neurons_hid: vec![Neuron::new(1+OUTS); 1],
+			neurons_out: arr![Neuron::new(1+OUTS)   ],
 			generation: 0
 		});
 
@@ -88,13 +88,9 @@ impl Agent {
 	pub fn spawn_child(&self) -> Self {
 		let mut brain = self.brain.clone();
 
-		// Spawn identical copy of self in 1/3 of cases, otherwise mutate
-		return if rand_range(0..3) == 0 {
-			Agent::with(brain)
-		} else {
-			brain.generation += 1;
-			Agent::with(brain).mutate()
-		}
+		brain.generation += 1;
+
+		Agent::with(brain).mutate()
 	}
 
 	fn with(brain: Brain) -> Self {

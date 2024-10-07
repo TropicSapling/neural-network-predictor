@@ -8,9 +8,9 @@ mod output;
 use agent::*;
 use ai::update_ai;
 
-fn print_agent(agents: &Vec<Agent>, agent: &Agent) {
+fn print_agent(agent: &Agent) {
 	println!("\nNeural Network: {:#?}", agent.brain);
-	println!("\nagent.err = {}\n\nAGENTS: {}", 1.0/agent.inverr, agents.len())
+	println!("\nagent.err = {}", 1.0/agent.inverr)
 }
 
 fn main() {
@@ -23,16 +23,18 @@ fn main() {
 		// Remove worse-performing majority of agents once in a while
 		if i % 576 == 575 {
 			agents.sort_by(|a, b| b.inverr.partial_cmp(&a.inverr).unwrap());
-			agents.truncate(24);
-			println!("mid-err={}", 1.0/agents.last().unwrap().inverr)
+			agents.truncate(48);
+
+			let mid = agents.last().unwrap();
+			println!("mid-err={}, gen={}", 1.0/mid.inverr, mid.brain.generation)
 		}
 
 		agents.push(Agent::new(&agents, invsum));
-		update_ai(agents.last_mut().unwrap(), 3.1415926535, &mut invsum, &mut hs)
+		update_ai(agents.last_mut().unwrap(), 314.15926535, &mut invsum, &mut hs)
 	}
 
 	// Print top agent
 	agents.sort_by(|a, b| b.inverr.partial_cmp(&a.inverr).unwrap());
 	agents.truncate(1);
-	print_agent(&agents, agents.last().unwrap())
+	print_agent(agents.last().unwrap())
 }
