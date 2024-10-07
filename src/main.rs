@@ -17,7 +17,7 @@ fn main() {
 	let mut agents: Vec<Agent> = vec![];
 	let mut invsum = 0.0;
 	let mut hs     = 0.0;
-	for i in 0..27648 {
+	for i in 0..55296 {
 		if invsum == f64::INFINITY {break}
 
 		// Remove worse-performing majority of agents once in a while
