@@ -17,7 +17,7 @@ fn main() {
 	let mut agents: Vec<Agent> = vec![];
 	let mut invsum = 0.0;
 	let mut hs     = 0.0;
-	for i in 0..13824 {
+	for i in 0..27648 {
 		if invsum == f64::INFINITY {break}
 
 		// Remove worse-performing majority of agents once in a while
@@ -30,7 +30,7 @@ fn main() {
 		}
 
 		agents.push(Agent::new(&agents, invsum));
-		update_ai(agents.last_mut().unwrap(), 314.15926535, &mut invsum, &mut hs)
+		update_ai(agents.last_mut().unwrap(), 3141592653.5, &mut invsum, &mut hs)
 	}
 
 	// Print top agent

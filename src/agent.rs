@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::helpers::*;
 
-pub const INPS: usize = 365;
+pub const INPS: usize = 52;
 pub const OUTS: usize = 2;
 
 macro_rules! arr {
