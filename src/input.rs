@@ -1,7 +1,7 @@
 use crate::agent::*;
 
 pub fn assign(input: &mut [Neuron; INPS]) {
-	for inp in input {
-		inp.excitation = 1.0 // placeholder
-	}
+    for (i, res) in csv::Reader::from_reader(std::io::stdin()).records().enumerate() {
+        input[i].excitation = res.unwrap()[0].parse().unwrap() // placeholder
+    }
 }
