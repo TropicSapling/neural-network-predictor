@@ -13,7 +13,7 @@ fn print_agent(agent: &Agent) {
 	println!("\nagent.err = {}", 1.0/agent.inverr)
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut agents: Vec<Agent> = vec![];
 	let mut invsum = 0.0;
 	let mut hs     = 0.0;
@@ -30,11 +30,13 @@ fn main() {
 		}
 
 		agents.push(Agent::new(&agents, invsum));
-		update_ai(agents.last_mut().unwrap(), 3141592653.5, &mut invsum, &mut hs)
+		update_ai(agents.last_mut().unwrap(), 3141592653.5, &mut invsum, &mut hs)?
 	}
 
 	// Print top agent
 	agents.sort_by(|a, b| b.inverr.partial_cmp(&a.inverr).unwrap());
 	agents.truncate(1);
-	print_agent(agents.last().unwrap())
+	print_agent(agents.last().unwrap());
+
+	Ok(())
 }

@@ -1,6 +1,8 @@
 use crate::{agent::*, input, output};
 
-pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) {
+pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64)
+	-> Result<(), Box<dyn std::error::Error>>
+{
 	if agent.inverr == 0.0 {
 		let mut err0 = 1.0;
 		let mut err1 = 0.0;
@@ -11,7 +13,7 @@ pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) 
 			let mut predictions = [0.0; OUTS];
 
 			// Input
-			input::assign(agent.brain.input());
+			input::assign(agent.brain.input())?;
 
 			// Input -> ... -> Output
 			let output = agent.brain.update_neurons();
@@ -31,7 +33,9 @@ pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64) 
 		// Record and print if new highscore
 		if agent.inverr > *h {
 			*h = agent.inverr;
-			println!("TOP-ERR={}, gen={}", 1.0 / *h, agent.brain.generation)
+			println!("TOP-ERR={}, gen={}", 1.0 / *h, agent.brain.generation);
 		}
 	}
+
+	Ok(())
 }
