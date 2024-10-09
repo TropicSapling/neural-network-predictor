@@ -14,6 +14,8 @@ fn print_agent(agent: &Agent) {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+	let targets = output::targets();
+
 	let mut agents: Vec<Agent> = vec![];
 	let mut invsum = 0.0;
 	let mut hs     = 0.0;
@@ -22,6 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 		// Remove worse-performing majority of agents once in a while
 		if i % 576 == 575 {
+			// TODO: update agent.inverr for new targets
 			agents.sort_by(|a, b| b.inverr.partial_cmp(&a.inverr).unwrap());
 			agents.truncate(48);
 
@@ -30,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 
 		agents.push(Agent::new(&agents, invsum));
-		update_ai(agents.last_mut().unwrap(), 3141592653.5, &mut invsum, &mut hs)?
+		update_ai(agents.last_mut().unwrap(), targets[i], &mut invsum, &mut hs)?
 	}
 
 	// Print top agent
