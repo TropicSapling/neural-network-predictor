@@ -1,8 +1,10 @@
 use crate::agent::*;
 
-pub fn assign(predictions: &mut [f64; OUTS], output: &[Neuron; OUTS]) {
-	for (n, out) in output.iter().enumerate() {
+pub fn assign(predictions: &mut [f64; OUTS], output: &mut [Neuron; OUTS]) {
+	for (n, out) in output.iter_mut().enumerate() {
+		// If neuron activated...
 		if out.excitation >= out.act_threshold {
+			// ... activate the connections
 			for conn in &out.next_conn {
 				if conn.relu {
 					predictions[n] += conn.weight * out.excitation
@@ -10,14 +12,18 @@ pub fn assign(predictions: &mut [f64; OUTS], output: &[Neuron; OUTS]) {
 					predictions[n] += conn.weight
 				}
 			}
+
+			// ... and reset excitation
+			out.excitation = 0.0
 		}
 	}
 }
 
-pub fn targets() -> [f64; 55296] {
-	let mut arr = [0.0; 55296];
-	for i in 0..55296 {
-		arr[i] = crate::helpers::rand_range(-3141592653.5..3141592653.5) // placeholder
+pub fn targets() -> [f64; 13824] {
+	let mut arr = [0.0; 13824];
+	for i in 0..13824 {
+		//arr[i] = crate::helpers::rand_range(-3141592653.5..3141592653.5)
+		arr[i] = 3141592653.5 // placeholder
 	}
 	arr
 }

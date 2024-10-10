@@ -60,17 +60,15 @@ pub struct OutwardConn {
 impl Agent {
 	pub fn new(agents: &Vec<Agent>, invsum: f64) -> Self {
 		// Prioritise spawning from existing generations
-		for _ in 0..7 {
-			for parent in agents {
-				// See error_share_formula.PNG
-				let share = parent.inverr / invsum;
-				if rand_range(0.0..1.0) < share || share.is_nan() {
-					return parent.spawn_child()
-				}
+		for parent in agents {
+			// See error_share_formula.PNG
+			let share = parent.inverr / invsum;
+			if rand_range(0.0..1.0) < share || share.is_nan() {
+				return parent.spawn_child()
 			}
 		}
 
-		// But sometimes spawn an entirely new agent (CHANCE: 1/e^7 ~ 0.09%)
+		// But sometimes spawn an entirely new agent (CHANCE: 1/e ~ 36.8%)
 		let mut new_agent = Agent::with(Brain {
 			neurons_inp: arr![Neuron::new(1+OUTS)   ],
 			neurons_hid: vec![Neuron::new(1+OUTS); 1],
@@ -111,7 +109,7 @@ impl Agent {
 impl Brain {
 	pub fn input(&mut self) -> &mut [Neuron; INPS] {&mut self.neurons_inp}
 
-	pub fn update_neurons(&mut self) -> &[Neuron; OUTS] {
+	pub fn update_neurons(&mut self) -> &mut [Neuron; OUTS] {
 		// Drain output neurons from previous excitation
 		for i in 0..OUTS {
 			self.neurons_out[i].drain()
@@ -129,7 +127,7 @@ impl Brain {
 			}
 		}
 
-		&self.neurons_out
+		&mut self.neurons_out
 	}
 
 	fn update_neuron(&mut self, i: usize, is_input: bool) {
@@ -148,7 +146,7 @@ impl Brain {
 				activations.push(conn.clone())
 			}
 
-			// ... and then activate the connections
+			// ... activate the connections
 			for conn in &mut activations {
 				let recv_neuron = if conn.dest_index < OUTS {
 					&mut self.neurons_out[conn.dest_index]
@@ -181,10 +179,17 @@ impl Brain {
 				recv_neuron.reachable = true
 			}
 
-			// ... and finally apply potential STDP changes
+			// ... and finally reset excitation & apply potential STDP changes
 			match is_input {
-				true => self.neurons_inp[i].next_conn = activations,
-				_    => self.neurons_hid[i].next_conn = activations
+				true => {
+					self.neurons_inp[i].excitation = 0.0;
+					self.neurons_inp[i].next_conn  = activations
+				}
+
+				_ => {
+					self.neurons_hid[i].excitation = 0.0;
+					self.neurons_hid[i].next_conn   = activations
+				}
 			}
 		}
 	}
