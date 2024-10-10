@@ -19,13 +19,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut agents: Vec<Agent> = vec![];
 	let mut invsum = 0.0;
 	let mut hs     = 0.0;
-	for i in 0..13824 {
+	for i in 0..55296 {
 		if invsum == f64::INFINITY {break}
 
 		// Remove worse-performing majority of agents once in a while
 		if i % 576 == 575 {
 			agents.sort_by(|a, b| b.inverr.partial_cmp(&a.inverr).unwrap());
-			agents.truncate(24);
+			agents.truncate(48);
 			invsum = 0.0;
 			for agent in &mut agents {
 				//agent.reset();
@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	invsum = 0.0;
 	for agent in &mut agents {
 		//agent.reset();
-		update_ai(agent, targets[13822], &mut invsum, &mut hs)?
+		update_ai(agent, targets[55295], &mut invsum, &mut hs)?
 	}
 	print_agent(agents.last().unwrap());
 

@@ -19,11 +19,10 @@ pub fn assign(predictions: &mut [f64; OUTS], output: &mut [Neuron; OUTS]) {
 	}
 }
 
-pub fn targets() -> [f64; 13824] {
-	let mut arr = [0.0; 13824];
-	for i in 0..13824 {
-		//arr[i] = crate::helpers::rand_range(-3141592653.5..3141592653.5)
-		arr[i] = 3141592653.5 // placeholder
+pub fn targets() -> [f64; 55296] {
+	let mut arr = [0.0; 55296];
+	for i in 0..55296 {
+		arr[i] = crate::helpers::rand_range(3141592553.5..=3141592653.5) // placeholder
 	}
 	arr
 }
