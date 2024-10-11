@@ -3,6 +3,9 @@ use crate::{agent::*, input, output};
 pub fn update_ai(agent: &mut Agent, target: f64, invsum: &mut f64, h: &mut f64)
 	-> Result<(), Box<dyn std::error::Error>>
 {
+	// TODO: if get poor results, try pseudo-normalize i/o using log(...)
+	// - Could potentially have "log" variant for each neuron
+
 	let mut err0 = 1.0;
 	let mut err1 = 0.0;
 	// Run until we get a "final" output error
