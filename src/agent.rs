@@ -12,7 +12,7 @@ macro_rules! arr {
 #[derive(Debug)]
 pub struct Agent {
 	pub brain  : Brain,
-	pub inverr : f64
+	pub maxerr : f64
 }
 
 
@@ -60,15 +60,17 @@ pub struct OutwardConn {
 impl Agent {
 	pub fn new(agents: &Vec<Agent>, invsum: f64) -> Self {
 		// Prioritise spawning from existing generations
-		for parent in agents {
-			// See error_share_formula.PNG
-			let share = parent.inverr / invsum;
-			if rand_range(0.0..1.0) < share || share.is_nan() {
-				return parent.spawn_child()
+		for _ in 0..7 {
+			for parent in agents {
+				// See error_share_formula.PNG
+				let share = (1.0/parent.maxerr) / invsum;
+				if rand_range(0.0..1.0) < share || share.is_nan() {
+					return parent.spawn_child()
+				}
 			}
 		}
 
-		// But sometimes spawn an entirely new agent (CHANCE: 1/e ~ 36.8%)
+		// But sometimes spawn an entirely new agent (CHANCE: 1/e^7 ~ 0.09%)
 		let mut new_agent = Agent::with(Brain {
 			neurons_inp: arr![Neuron::new(1+OUTS)   ],
 			neurons_hid: vec![Neuron::new(1+OUTS); 1],
@@ -92,7 +94,7 @@ impl Agent {
 	}
 
 	fn with(brain: Brain) -> Self {
-		Agent {brain, inverr: 0.0}
+		Agent {brain, maxerr: 0.0}
 	}
 
 	fn mutate(mut self) -> Self {

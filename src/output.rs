@@ -19,10 +19,10 @@ pub fn assign(predictions: &mut [f64; OUTS], output: &mut [Neuron; OUTS]) {
 	}
 }
 
-pub fn targets() -> [f64; 55296] {
-	let mut arr = [0.0; 55296];
-	for i in 0..55296 {
-		arr[i] = 314.15926535 + (i as f64)%52.0 // placeholder
+pub fn targets() -> [f64; INPS] {
+	let mut arr = [0.0; INPS];
+	for i in 0..INPS {
+		arr[i] = 314.0 + (i as f64) // placeholder
 	}
 	arr
 }
