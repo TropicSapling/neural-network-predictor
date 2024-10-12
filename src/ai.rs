@@ -1,8 +1,10 @@
 use crate::{agent::*, input, output};
 
 pub fn update_ai(agent: &mut Agent, inp: f64, aim: f64) {
-	// TODO: if get poor results, try pseudo-normalize i/o using log(...)
+	// TODO: If get poor results, try pseudo-normalize i/o using log(...)
 	// - Could potentially have "log" variant for each neuron
+	// - ALSO: maybe try backpropagation?
+	// - (additionally could try disabling halve-doubling of weights stuff)
 
 	let mut err0 = 1.0;
 	let mut err1 = 0.0;
