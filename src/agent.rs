@@ -93,13 +93,18 @@ impl Agent {
 		Agent::with(brain).mutate()
 	}
 
-	fn with(brain: Brain) -> Self {
-		Agent {brain, maxerr: 0.0}
+	pub fn reset(&mut self) -> &mut Self {
+		self.brain.reset();
+		self
 	}
 
 	fn mutate(mut self) -> Self {
 		self.brain.mutate();
 		self
+	}
+
+	fn with(brain: Brain) -> Self {
+		Agent {brain, maxerr: 0.0}
 	}
 }
 
@@ -123,10 +128,8 @@ impl Brain {
 		}
 
 		for i in 0..self.neurons_hid.len() {
-			if self.neurons_hid[i].reachable {
-				self.update_neuron(i, false);
-				self.neurons_hid[i].drain()
-			}
+			self.update_neuron(i, false);
+			self.neurons_hid[i].drain()
 		}
 
 		&mut self.neurons_out
@@ -190,7 +193,7 @@ impl Brain {
 
 				_ => {
 					self.neurons_hid[i].excitation = 0.0;
-					self.neurons_hid[i].next_conn   = activations
+					self.neurons_hid[i].next_conn  = activations
 				}
 			}
 		}
@@ -246,6 +249,16 @@ impl Brain {
 			};
 
 			neuron.next_conn.push(OutwardConn::new(recv_neurons))
+		}
+	}
+
+	fn reset(&mut self) {
+		for neuron in &mut self.neurons_hid {
+			neuron.excitation = 0.0
+		}
+
+		for neuron in &mut self.neurons_out {
+			neuron.excitation = 0.0
 		}
 	}
 }

@@ -8,8 +8,15 @@ mod output;
 use agent::*;
 use ai::update_ai;
 
-fn print_agent(agent: &Agent) {
-	println!("\nNeural Network: {:#?}\n\nmaxerr = {}", agent.brain, agent.maxerr)
+fn print_agent(agent: &mut Agent, inputs: [f64; INPS], targets: [f64; INPS]) {
+	println!("\nNeural Network: {:#?}\n\nmaxerr = {}\n", agent.brain, agent.maxerr);
+
+	for i in 0..INPS {
+		let predictions = update_ai(agent.reset(), inputs[i], targets[i]);
+		let err         = (predictions[1] - predictions[0] - targets[i]).abs();
+
+		println!("{predictions:?} => {} (err={err})", predictions[1] - predictions[0])
+	}
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	for n in 0..65536 {
 		agents.push(Agent::new(&agents, invsum));
 		for i in 0..INPS {
-			update_ai(agents.last_mut().unwrap(), inputs[i], targets[i])
+			update_ai(agents.last_mut().unwrap().reset(), inputs[i], targets[i]);
 		}
 
 		invsum += 1.0/agents.last().unwrap().maxerr;
@@ -44,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			// Quit training if things have started to converge
 			if top.maxerr == prverr {
 				stayed += 1;
-				if stayed > 15 {
+				if stayed > 63 || top.maxerr == 0.0 {
 					println!("\nn={n}");
 					break
 				}
@@ -58,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Print top agent
 	agents.sort_by(|a, b| a.maxerr.partial_cmp(&b.maxerr).unwrap());
 	agents.truncate(1);
-	print_agent(&agents[0]);
+	print_agent(&mut agents[0], inputs, targets);
 
 	Ok(())
 }
