@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut prverr = 0.0;
 	let mut stayed = 0;
 	for n in 0..65536 {
-		agents.push(Agent::new(&agents, invsum));
+		agents.push(Agent::from(&agents, invsum, invsum)); // TODO: minsum & maxsum
 		for i in 0..INPS {
 			update_ai(agents.last_mut().unwrap().reset(), inputs[i], targets[i]);
 		}
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			// Quit training if things have started to converge
 			if top.maxerr == prverr {
 				stayed += 1;
-				if stayed > 63 || top.maxerr == 0.0 {
+				if stayed > 31 || top.maxerr == 0.0 {
 					println!("\nn={n}");
 					break
 				}

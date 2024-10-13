@@ -12,7 +12,8 @@ macro_rules! arr {
 #[derive(Debug)]
 pub struct Agent {
 	pub brain  : Brain,
-	pub maxerr : f64
+	pub maxerr : f64,
+	pub minerr : f64
 }
 
 
@@ -58,19 +59,26 @@ pub struct OutwardConn {
 
 
 impl Agent {
-	pub fn new(agents: &Vec<Agent>, invsum: f64) -> Self {
-		// Prioritise spawning from existing generations
-		for _ in 0..7 {
-			for parent in agents {
-				// See error_share_formula.PNG
-				let share = (1.0/parent.maxerr) / invsum;
-				if rand_range(0.0..1.0) < share || share.is_nan() {
-					return parent.spawn_child()
-				}
-			}
+	pub fn from(agents: &Vec<Agent>, maxsum: f64, minsum: f64) -> Self {
+		// Create entirely new agents the first two times
+		if agents.len() < 2 {
+			return Agent::new()
 		}
 
-		// But sometimes spawn an entirely new agent (CHANCE: 1/e^7 ~ 0.09%)
+		// Select parents - see error_share_formula.PNG
+		let parent1 = Agent::select(agents, |parent| (1.0/parent.maxerr) / maxsum);
+		let parent2 = Agent::select(agents, |parent| (1.0/parent.minerr) / minsum);
+
+		// Return child of both
+		Agent::merge(parent1, parent2)
+	}
+
+	pub fn reset(&mut self) -> &mut Self {
+		self.brain.reset();
+		self
+	}
+
+	fn new() -> Self {
 		let mut new_agent = Agent::with(Brain {
 			neurons_inp: arr![Neuron::new(1+OUTS)   ],
 			neurons_hid: vec![Neuron::new(1+OUTS); 1],
@@ -85,26 +93,34 @@ impl Agent {
 		new_agent
 	}
 
-	pub fn spawn_child(&self) -> Self {
-		let mut brain = self.brain.clone();
+	fn with(brain: Brain) -> Self {
+		Agent {brain, maxerr: 0.0, minerr: 0.0}
+	}
+
+	fn merge(parent1: &Self, parent2: &Self) -> Self {
+		let mut brain = Brain::merge(&parent1.brain, &parent2.brain);
 
 		brain.generation += 1;
 
 		Agent::with(brain).mutate()
 	}
 
-	pub fn reset(&mut self) -> &mut Self {
-		self.brain.reset();
-		self
+	fn select(agents: &Vec<Agent>, share: impl Fn(&Self) -> f64) -> &Self {
+		// Try selecting a fit agent
+		for _ in 0..7 {
+			for parent in agents {
+				if rand_range(0.0..1.0) < share(parent) {
+					return parent
+				}
+			}
+		}
+
+		&agents[0] // first agent as backup (chance: 1/e^7 ~ 0.09%)
 	}
 
 	fn mutate(mut self) -> Self {
 		self.brain.mutate();
 		self
-	}
-
-	fn with(brain: Brain) -> Self {
-		Agent {brain, maxerr: 0.0}
 	}
 }
 
@@ -260,6 +276,11 @@ impl Brain {
 		for neuron in &mut self.neurons_out {
 			neuron.excitation = 0.0
 		}
+	}
+
+	fn merge(brain1: &Self, brain2: &Self) -> Self {
+		// TODO ...
+		brain1.clone() // placeholder
 	}
 }
 
