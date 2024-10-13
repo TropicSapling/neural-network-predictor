@@ -31,5 +31,11 @@ pub fn update_ai(agent: &mut Agent, inp: f64, aim: f64) -> [f64; OUTS] {
 		agent.maxerr = err1
 	}
 
+	// If error was better for this input, record that
+	if err1 < agent.minerr {
+		agent.minerr = err1
+	}
+
+
 	predictions
 }

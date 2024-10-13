@@ -79,12 +79,7 @@ impl Agent {
 	}
 
 	fn new() -> Self {
-		let mut new_agent = Agent::with(Brain {
-			neurons_inp: arr![Neuron::new(1+OUTS)   ],
-			neurons_hid: vec![Neuron::new(1+OUTS); 1],
-			neurons_out: arr![Neuron::new(1+OUTS)   ],
-			generation: 0
-		});
+		let mut new_agent = Agent::with(Brain::new(1));
 
 		for _ in 0..rand_range(0..32) {
 			new_agent = new_agent.mutate()
@@ -94,7 +89,7 @@ impl Agent {
 	}
 
 	fn with(brain: Brain) -> Self {
-		Agent {brain, maxerr: 0.0, minerr: 0.0}
+		Agent {brain, maxerr: 0.0, minerr: f64::MAX}
 	}
 
 	fn merge(parent1: &Self, parent2: &Self) -> Self {
@@ -278,9 +273,43 @@ impl Brain {
 		}
 	}
 
+	fn new(n: usize) -> Self {
+		Brain {
+			neurons_inp: arr![Neuron::new(1+OUTS)   ],
+			neurons_hid: vec![Neuron::new(1+OUTS); n],
+			neurons_out: arr![Neuron::new(1+OUTS)   ],
+			generation: 0
+		}
+	}
+
 	fn merge(brain1: &Self, brain2: &Self) -> Self {
-		// TODO ...
-		brain1.clone() // placeholder
+		let minhid = brain1.neurons_hid.len().min(brain2.neurons_hid.len());
+		let maxhid = brain1.neurons_hid.len().max(brain2.neurons_hid.len());
+
+		let mut brain = Brain::new(maxhid);
+
+		// Merge input neurons
+		for i in 0..INPS {
+			brain.neurons_inp[i].merge(&brain1.neurons_inp[i], &brain2.neurons_inp[i])
+		}
+
+		// Merge initial hidden neurons
+		for i in 0..minhid {
+			brain.neurons_hid[i].merge(&brain1.neurons_hid[i], &brain2.neurons_hid[i])
+		}
+
+		// Merge remaining hidden neurons
+		let maxbrain = if brain1.neurons_hid.len() == maxhid {brain1} else {brain2};
+		for i in minhid..maxhid {
+			brain.neurons_hid[i] = maxbrain.neurons_hid[i].clone()
+		}
+
+		// Merge output neurons
+		for i in 0..OUTS {
+			brain.neurons_out[i].merge(&brain1.neurons_out[i], &brain2.neurons_out[i])
+		}
+
+		brain
 	}
 }
 
@@ -371,6 +400,13 @@ impl Neuron {
 
 		// Assume not reachable until proven otherwise
 		self.reachable = false
+	}
+
+	fn merge(&mut self, neuron1: &Neuron, neuron2: &Neuron) {
+		match rand_range(0..2) {
+			0 => *self = neuron1.clone(),
+			_ => *self = neuron2.clone()
+		}
 	}
 
 	fn drain(&mut self) {

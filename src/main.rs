@@ -24,25 +24,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let targets = output::targets();
 
 	let mut agents: Vec<Agent> = vec![];
-	let mut invsum = 0.0;
+	let mut minsum = 0.0;
+	let mut maxsum = 0.0;
 	let mut prverr = 0.0;
 	let mut stayed = 0;
 	for n in 0..65536 {
-		agents.push(Agent::from(&agents, invsum, invsum)); // TODO: minsum & maxsum
+		agents.push(Agent::from(&agents, minsum, maxsum));
 		for i in 0..INPS {
 			update_ai(agents.last_mut().unwrap().reset(), inputs[i], targets[i]);
 		}
 
-		invsum += 1.0/agents.last().unwrap().maxerr;
+		minsum += 1.0/agents.last().unwrap().minerr;
+		maxsum += 1.0/agents.last().unwrap().maxerr;
 
 		// Remove worse-performing majority of agents once in a while
 		if n % 256 == 0 {
+			//agents.sort_by(|a, b| a.minerr.partial_cmp(&b.minerr).unwrap());
+			//agents.truncate(64);
 			agents.sort_by(|a, b| a.maxerr.partial_cmp(&b.maxerr).unwrap());
 			agents.truncate(16);
 
-			invsum = 0.0;
+			minsum = 0.0;
+			maxsum = 0.0;
 			for agent in &agents {
-				invsum += 1.0/agent.maxerr
+				minsum += 1.0/agent.minerr;
+				maxsum += 1.0/agent.maxerr;
 			}
 
 			let top = &agents[0];
