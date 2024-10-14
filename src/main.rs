@@ -23,8 +23,15 @@ fn print_agent(agent: &mut Agent, inputs: [f64; INPS], targets: [f64; INPS]) {
 		let tgt = targets[i];
 		let res = out[1] - out[0];
 
-		println!("{inp:<2} => {out:>5.1?} => {res:<5.1} (err={err:<5.1}) <= {tgt}")
+		println!("{inp:<2} => {out:>6.1?} => {res:<6.2} (err={err:<5.2}) <= {tgt:.2}")
 	}
+}
+
+fn optimise(agents: &mut Vec<Agent>) {
+	let rank = |agent: &Agent| agent.maxerr.powf(2.0) + agent.toterr;
+
+	agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
+	agents.truncate(192);
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,19 +45,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut stayed = 0;
 	for n in 0..65536 {
 		agents.push(Agent::from(&agents, totsum, maxsum));
-		agents.last_mut().unwrap().toterr = 0.0;
-		agents.last_mut().unwrap().maxerr = 0.0;
+
+		let agent = agents.last_mut().unwrap();
+
+		agent.toterr = 0.0;
+		agent.maxerr = 0.0;
 		for i in 0..INPS {
-			update_ai(agents.last_mut().unwrap().reset(), inputs[i], targets[i]);
+			update_ai(agent.reset(), inputs[i], targets[i]);
 		}
 
-		totsum += 1.0/agents.last().unwrap().toterr;
-		maxsum += 1.0/agents.last().unwrap().maxerr;
+		totsum += 1.0/agent.toterr;
+		maxsum += 1.0/agent.maxerr;
 
 		// Remove worse-performing majority of agents once in a while
 		if n % 384 == 0 {
-			agents.sort_by(|a, b| a.toterr.partial_cmp(&b.toterr).unwrap());
-			agents.truncate(256);
+			optimise(&mut agents);
 
 			totsum = 0.0;
 			maxsum = 0.0;
@@ -59,18 +68,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				maxsum += 1.0/agent.maxerr;
 			}
 
-			let top = &agents[0];
-			println!("toterr={}, gen={}", top.toterr, top.brain.generation);
+			let (maxerr, toterr) = (agents[0].maxerr, agents[0].toterr);
+			let generation       = agents[0].brain.generation;
+			println!("maxerr={maxerr:.2}, toterr={toterr:.2}, gen={generation}");
 
 			// Quit training if things have started to converge
-			if top.toterr == prverr {
+			if toterr == prverr {
 				stayed += 1;
-				if stayed > 23 || top.toterr == 0.0 {
+				if stayed > 23 || toterr == 0.0 {
 					println!("\nn={n}");
 					break
 				}
 			} else {
-				prverr = top.toterr;
+				prverr = toterr;
 				stayed = 0
 			}
 		}
@@ -78,7 +88,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Print top agent
 	agents.sort_by(|a, b| a.toterr.partial_cmp(&b.toterr).unwrap());
-	agents.truncate(1);
 	print_agent(&mut agents[0], inputs, targets);
 
 	Ok(())
