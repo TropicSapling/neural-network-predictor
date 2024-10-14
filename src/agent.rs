@@ -13,7 +13,7 @@ macro_rules! arr {
 pub struct Agent {
 	pub brain  : Brain,
 	pub maxerr : f64,
-	pub minerr : f64
+	pub toterr : f64
 }
 
 
@@ -62,12 +62,12 @@ impl Agent {
 	pub fn from(agents: &Vec<Agent>, maxsum: f64, minsum: f64) -> Self {
 		// Create entirely new agents the first two times
 		if agents.len() < 2 {
-			return Agent::new()
+			return Agent::with(Brain::new(1, 0))
 		}
 
 		// Select parents - see error_share_formula.PNG
-		let parent1 = Agent::select(agents, |parent| (1.0/parent.maxerr) / maxsum);
-		let parent2 = Agent::select(agents, |parent| (1.0/parent.minerr) / minsum);
+		let parent1 = Agent::select(agents, |parent| parent.maxerr, maxsum);
+		let parent2 = Agent::select(agents, |parent| parent.toterr, minsum);
 
 		// Return child of both
 		Agent::merge(parent1, parent2)
@@ -78,29 +78,21 @@ impl Agent {
 		self
 	}
 
-	fn new() -> Self {
-		let mut new_agent = Agent::with(Brain::new(1, 0));
-
-		for _ in 0..rand_range(0..32) {
-			new_agent = new_agent.mutate()
-		}
-
-		new_agent
-	}
-
 	fn with(brain: Brain) -> Self {
-		Agent {brain, maxerr: 0.0, minerr: f64::MAX}
+		Agent {brain, maxerr: 0.0, toterr: 0.0}
 	}
 
 	fn merge(parent1: &Self, parent2: &Self) -> Self {
 		Agent::with(Brain::merge(&parent1.brain, &parent2.brain)).mutate()
 	}
 
-	fn select(agents: &Vec<Agent>, share: impl Fn(&Self) -> f64) -> &Self {
+	fn select(agents: &Vec<Agent>, err: impl Fn(&Self) -> f64, errsum: f64) -> &Self {
 		// Try selecting a fit agent
 		for _ in 0..7 {
 			for parent in agents {
-				if rand_range(0.0..1.0) < share(parent) {
+				let share = 1.0/err(parent);
+				let avg   = errsum/(agents.len() as f64);
+				if rand_range(0.0..1.0) < (share + avg)/(errsum*2.0) {
 					return parent
 				}
 			}

@@ -9,8 +9,10 @@ use agent::*;
 use ai::update_ai;
 
 fn print_agent(agent: &mut Agent, inputs: [f64; INPS], targets: [f64; INPS]) {
-	println!("\nNeural Network: {:#?}\n\nmaxerr = {}\n", agent.brain, agent.maxerr);
+	println!("\nNeural Network: {:#?}\n\ntoterr = {}\n", agent.brain, agent.toterr);
 
+	agent.toterr = 0.0;
+	agent.maxerr = 0.0;
 	for i in 0..INPS {
 		let predictions = update_ai(agent.reset(), inputs[i], targets[i]);
 		let err         = (predictions[1] - predictions[0] - targets[i]).abs();
@@ -24,52 +26,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let targets = output::targets();
 
 	let mut agents: Vec<Agent> = vec![];
-	let mut minsum = 0.0;
+	let mut totsum = 0.0;
 	let mut maxsum = 0.0;
 	let mut prverr = 0.0;
 	let mut stayed = 0;
 	for n in 0..65536 {
-		agents.push(Agent::from(&agents, minsum, maxsum));
+		agents.push(Agent::from(&agents, totsum, maxsum));
+		agents.last_mut().unwrap().toterr = 0.0;
+		agents.last_mut().unwrap().maxerr = 0.0;
 		for i in 0..INPS {
 			update_ai(agents.last_mut().unwrap().reset(), inputs[i], targets[i]);
 		}
 
-		minsum += 1.0/agents.last().unwrap().minerr;
+		totsum += 1.0/agents.last().unwrap().toterr;
 		maxsum += 1.0/agents.last().unwrap().maxerr;
 
 		// Remove worse-performing majority of agents once in a while
 		if n % 256 == 0 {
-			//agents.sort_by(|a, b| a.minerr.partial_cmp(&b.minerr).unwrap());
+			//agents.sort_by(|a, b| a.toterr.partial_cmp(&b.toterr).unwrap());
 			//agents.truncate(64);
-			agents.sort_by(|a, b| a.maxerr.partial_cmp(&b.maxerr).unwrap());
+			//agents.sort_by(|a, b| a.maxerr.partial_cmp(&b.maxerr).unwrap());
+			//agents.truncate(16);
+			agents.sort_by(|a, b| a.toterr.partial_cmp(&b.toterr).unwrap());
 			agents.truncate(16);
 
-			minsum = 0.0;
+			totsum = 0.0;
 			maxsum = 0.0;
 			for agent in &agents {
-				minsum += 1.0/agent.minerr;
+				totsum += 1.0/agent.toterr;
 				maxsum += 1.0/agent.maxerr;
 			}
 
 			let top = &agents[0];
-			println!("maxerr={}, gen={}", top.maxerr, top.brain.generation);
+			println!("toterr={}, gen={}", top.toterr, top.brain.generation);
 
 			// Quit training if things have started to converge
-			if top.maxerr == prverr {
+			if top.toterr == prverr {
 				stayed += 1;
-				if stayed > 31 || top.maxerr == 0.0 {
+				if stayed > 31 || top.toterr == 0.0 {
 					println!("\nn={n}");
 					break
 				}
 			} else {
-				prverr = top.maxerr;
+				prverr = top.toterr;
 				stayed = 0
 			}
 		}
 	}
 
 	// Print top agent
-	agents.sort_by(|a, b| a.maxerr.partial_cmp(&b.maxerr).unwrap());
+	agents.sort_by(|a, b| a.toterr.partial_cmp(&b.toterr).unwrap());
 	agents.truncate(1);
 	print_agent(&mut agents[0], inputs, targets);
 
