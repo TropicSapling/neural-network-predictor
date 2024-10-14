@@ -9,15 +9,21 @@ use agent::*;
 use ai::update_ai;
 
 fn print_agent(agent: &mut Agent, inputs: [f64; INPS], targets: [f64; INPS]) {
-	println!("\nNeural Network: {:#?}\n\ntoterr = {}\n", agent.brain, agent.toterr);
+	let (brain, maxerr, toterr) = (&agent.brain, agent.maxerr, agent.toterr);
+
+	println!("\nNeural Network: {brain:#?}\n\nmaxerr = {maxerr}\ntoterr = {toterr}\n");
 
 	agent.toterr = 0.0;
 	agent.maxerr = 0.0;
 	for i in 0..INPS {
-		let predictions = update_ai(agent.reset(), inputs[i], targets[i]);
-		let err         = (predictions[1] - predictions[0] - targets[i]).abs();
+		let out = update_ai(agent.reset(), inputs[i], targets[i]);
+		let err = (out[1] - out[0] - targets[i]).abs();
 
-		println!("{predictions:?} => {} (err={err})", predictions[1] - predictions[0])
+		let inp = inputs[i];
+		let tgt = targets[i];
+		let res = out[1] - out[0];
+
+		println!("{inp:<2} => {out:>5.1?} => {res:<5.1} (err={err:<5.1}) <= {tgt}")
 	}
 }
 
@@ -42,13 +48,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		maxsum += 1.0/agents.last().unwrap().maxerr;
 
 		// Remove worse-performing majority of agents once in a while
-		if n % 256 == 0 {
-			//agents.sort_by(|a, b| a.toterr.partial_cmp(&b.toterr).unwrap());
-			//agents.truncate(64);
-			//agents.sort_by(|a, b| a.maxerr.partial_cmp(&b.maxerr).unwrap());
-			//agents.truncate(16);
+		if n % 384 == 0 {
 			agents.sort_by(|a, b| a.toterr.partial_cmp(&b.toterr).unwrap());
-			agents.truncate(16);
+			agents.truncate(256);
 
 			totsum = 0.0;
 			maxsum = 0.0;
@@ -63,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			// Quit training if things have started to converge
 			if top.toterr == prverr {
 				stayed += 1;
-				if stayed > 31 || top.toterr == 0.0 {
+				if stayed > 23 || top.toterr == 0.0 {
 					println!("\nn={n}");
 					break
 				}

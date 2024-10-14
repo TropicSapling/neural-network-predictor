@@ -65,7 +65,7 @@ impl Agent {
 			return Agent::with(Brain::new(1, 0))
 		}
 
-		// Select parents - see error_share_formula.PNG
+		// Select parents
 		let parent1 = Agent::select(agents, |parent| parent.maxerr, maxsum);
 		let parent2 = Agent::select(agents, |parent| parent.toterr, minsum);
 
@@ -90,9 +90,9 @@ impl Agent {
 		// Try selecting a fit agent
 		for _ in 0..7 {
 			for parent in agents {
+				// See error_share_formula.PNG
 				let share = 1.0/err(parent);
-				let avg   = errsum/(agents.len() as f64);
-				if rand_range(0.0..1.0) < (share + avg)/(errsum*2.0) {
+				if rand_range(0.0..1.0) < share/errsum {
 					return parent
 				}
 			}
