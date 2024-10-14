@@ -8,7 +8,7 @@ mod output;
 use agent::*;
 use ai::update_ai;
 
-fn print_agent(agent: &mut Agent, inputs: [f64; INPS*2], targets: [f64; INPS*2]) {
+fn print_agent(agent: &mut Agent, inputs: [f64; INPS*3], targets: [f64; INPS*2]) {
 	let (brain, maxerr, toterr) = (&agent.brain, agent.maxerr, agent.toterr);
 
 	println!("\nNeural Network: {brain:#?}\n\nmaxerr = {maxerr}\ntoterr = {toterr}\n");
@@ -16,14 +16,14 @@ fn print_agent(agent: &mut Agent, inputs: [f64; INPS*2], targets: [f64; INPS*2])
 	agent.toterr = 0.0;
 	agent.maxerr = 0.0;
 	for i in 0..INPS*2 {
-		let inp = inputs[i];
+		let inp = format!("{:<3} .. {:<3}", inputs[i], inputs[i+INPS-1]);
 		let tgt = targets[i];
-		let out = update_ai(agent.reset(), inp, tgt);
+		let out = update_ai(agent.reset(), &inputs[i..i+INPS], tgt);
 
 		let res = out[1] - out[0];
 		let err = (res - tgt).abs();
 
-		println!("{inp:<3} => {out:>6.1?} => {res:<6.2} (err={err:<5.2}) <= {tgt:.2}")
+		println!("{inp} => {out:>6.1?} => {res:<6.2} (err={err:<5.2}) <= {tgt:.2}")
 	}
 }
 
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		agent.toterr = 0.0;
 		agent.maxerr = 0.0;
 		for i in partit*INPS..(partit+1)*INPS {
-			update_ai(agent.reset(), inputs[i], targets[i]);
+			update_ai(agent.reset(), &inputs[i..i+INPS], targets[i]);
 		}
 
 		totsum += 1.0/agent.toterr;
@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				agent.toterr = 0.0;
 				agent.maxerr = 0.0;
 				for i in partit*INPS..(partit+1)*INPS {
-					update_ai(agent.reset(), inputs[i], targets[i]);
+					update_ai(agent.reset(), &inputs[i..i+INPS], targets[i]);
 				}
 
 				totsum += 1.0/agent.toterr;
