@@ -79,7 +79,7 @@ impl Agent {
 	}
 
 	fn new() -> Self {
-		let mut new_agent = Agent::with(Brain::new(1));
+		let mut new_agent = Agent::with(Brain::new(1, 0));
 
 		for _ in 0..rand_range(0..32) {
 			new_agent = new_agent.mutate()
@@ -93,11 +93,7 @@ impl Agent {
 	}
 
 	fn merge(parent1: &Self, parent2: &Self) -> Self {
-		let mut brain = Brain::merge(&parent1.brain, &parent2.brain);
-
-		brain.generation += 1;
-
-		Agent::with(brain).mutate()
+		Agent::with(Brain::merge(&parent1.brain, &parent2.brain)).mutate()
 	}
 
 	fn select(agents: &Vec<Agent>, share: impl Fn(&Self) -> f64) -> &Self {
@@ -273,12 +269,12 @@ impl Brain {
 		}
 	}
 
-	fn new(n: usize) -> Self {
+	fn new(n: usize, generation: usize) -> Self {
 		Brain {
 			neurons_inp: arr![Neuron::new(1+OUTS)   ],
 			neurons_hid: vec![Neuron::new(1+OUTS); n],
 			neurons_out: arr![Neuron::new(1+OUTS)   ],
-			generation: 0
+			generation
 		}
 	}
 
@@ -286,7 +282,7 @@ impl Brain {
 		let minhid = brain1.neurons_hid.len().min(brain2.neurons_hid.len());
 		let maxhid = brain1.neurons_hid.len().max(brain2.neurons_hid.len());
 
-		let mut brain = Brain::new(maxhid);
+		let mut brain = Brain::new(maxhid, brain1.generation + 1);
 
 		// Merge input neurons
 		for i in 0..INPS {

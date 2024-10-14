@@ -36,6 +36,5 @@ pub fn update_ai(agent: &mut Agent, inp: f64, aim: f64) -> [f64; OUTS] {
 		agent.minerr = err1
 	}
 
-
 	predictions
 }
