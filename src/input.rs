@@ -7,13 +7,13 @@ pub fn assign(input: &mut [Neuron; INPS], inp: &[f64]) {
 	}
 }
 
-pub fn inputs() -> Result<[f64; INPS*3], Box<dyn Error>> {
-	let mut inp = [0.0; INPS*3];
+pub fn inputs() -> Result<[f64; INPS*4], Box<dyn Error>> {
+	let mut inp = [0.0; INPS*4];
 	let mut csv = csv::Reader::from_reader(stdin());
 
 	for (i, res) in csv.deserialize().enumerate() {
 		let rec: (f64, f64) = res?;
-		if i >= INPS*3 {
+		if i >= INPS*4 {
 			break
 		}
 

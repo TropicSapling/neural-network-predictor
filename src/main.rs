@@ -8,15 +8,19 @@ mod output;
 use agent::*;
 use ai::update_ai;
 
-fn print_agent(agent: &mut Agent, inputs: [f64; INPS*3], targets: [f64; INPS*2]) {
+fn print_agent(agent: &mut Agent, inputs: [f64; INPS*4], targets: &[f64]) {
 	let (brain, maxerr, toterr) = (&agent.brain, agent.maxerr, agent.toterr);
 
-	println!("\nNeural Network: {brain:#?}\n\nmaxerr = {maxerr}\ntoterr = {toterr}\n");
+	println!("\nNeural Network: {brain:#?}\n\nmaxerr={maxerr}\ntoterr={toterr}\n");
 
 	agent.toterr = 0.0;
 	agent.maxerr = 0.0;
-	for i in 0..INPS*2 {
-		let inp = format!("{:<3} .. {:<3}", inputs[i], inputs[i+INPS-1]);
+	for i in 0..INPS*3 {
+		if i == INPS*2 {
+			println!("\n    ======================================================\n")
+		}
+
+		let inp = format!("{:<3.2} .. {:<3.2}", inputs[i], inputs[i+INPS-1]);
 		let tgt = targets[i];
 		let out = update_ai(agent.reset(), &inputs[i..i+INPS], tgt);
 
@@ -36,7 +40,7 @@ fn optimise(agents: &mut Vec<Agent>) {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let inputs  = input::inputs()?;
-	let targets = output::targets();
+	let targets = &inputs[INPS..INPS*4];
 
 	let mut agents: Vec<Agent> = vec![];
 	let mut totsum = 0.0;

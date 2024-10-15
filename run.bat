@@ -1,1 +1,1 @@
-cargo run --release < data/test.csv
+cargo run --release < data/io.csv
