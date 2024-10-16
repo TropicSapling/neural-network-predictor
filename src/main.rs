@@ -20,7 +20,7 @@ fn print_agent(agent: &mut Agent, inputs: [f64; INPS*4], targets: &[f64]) {
 			println!("\n    ======================================================\n")
 		}
 
-		let inp = format!("{:<3.2} .. {:<3.2}", inputs[i], inputs[i+INPS-1]);
+		let inp = format!("{:<5.2} .. {:<5.2}", inputs[i], inputs[i+INPS-1]);
 		let tgt = targets[i];
 		let out = update_ai(agent.reset(), &inputs[i..i+INPS], tgt);
 
@@ -35,10 +35,12 @@ fn optimise(agents: &mut Vec<Agent>) {
 	let rank = |agent: &Agent| agent.maxerr.powf(2.0) + agent.toterr;
 
 	agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
-	agents.truncate(192);
+	agents.truncate(128);
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+	println!("");
+
 	let inputs  = input::inputs()?;
 	let targets = &inputs[INPS..INPS*4];
 
@@ -48,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut prverr = [0.0; 2];
 	let mut stayed = 0;
 	let mut partit = 0;
-	for n in 0..65536 {
+	for n in 1..=53248 {
 		agents.push(Agent::from(&agents, totsum, maxsum));
 
 		let agent = agents.last_mut().unwrap();
@@ -63,18 +65,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		maxsum += 1.0/agent.maxerr;
 
 		// Remove worse-performing majority of agents once in a while
-		if n % 384 == 0 {
+		if n % 256 == 0 {
 			optimise(&mut agents);
 
 			let (maxerr, toterr) = (agents[0].maxerr, agents[0].toterr);
-			let generation       = agents[0].brain.generation;
-			println!("maxerr={maxerr:.2}, toterr={toterr:.2}, gen={generation}");
+			let gen              = agents[0].brain.generation;
+			let pb = format!("[{}>{}]", "=".repeat(n/2048), " ".repeat(26-n/2048));
+			let st = format!("maxerr={maxerr:.2}, toterr={toterr:.2}, gen={gen}");
+			print!("\r{st:<34} {pb}");
+			use std::io::Write;
+			std::io::stdout().flush().unwrap();
 
 			// Quit training if things have started to converge
 			if toterr == prverr[partit] {
 				stayed += 1;
-				if stayed > 23 {
-					println!("\nn={n}");
+				if stayed > 63 {
+					println!("\r{st:<34} [==========================>]\n\nn={n}");
 					break
 				}
 			} else {
@@ -97,6 +103,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				maxsum += 1.0/agent.maxerr;
 			}
 		}
+
+		if n == 53248 {println!("")}
 	}
 
 	// Print top agent
