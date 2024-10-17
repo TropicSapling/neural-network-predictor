@@ -27,15 +27,15 @@ fn print_agent(agent: &mut Agent, inputs: [f64; INPS*4], targets: &[f64]) {
 		let res = out[1] - out[0];
 		let err = (res - tgt).abs();
 
-		println!("{inp} => {out:>6.1?} => {res:<6.2} (err={err:<5.2}) <= {tgt:.2}")
+		println!("{inp} => {out:>6.2?} => {res:<6.2} (err={err:<5.2}) <= {tgt:.2}")
 	}
 }
 
-fn optimise(agents: &mut Vec<Agent>) {
+fn optimise(agents: &mut Vec<Agent>, new_size: usize) {
 	let rank = |agent: &Agent| agent.maxerr.powf(2.0) + agent.toterr;
 
 	agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
-	agents.truncate(128);
+	agents.truncate(new_size);
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 		// Remove worse-performing majority of agents once in a while
 		if n % 256 == 0 {
-			optimise(&mut agents);
+			optimise(&mut agents, 128/(stayed+1));
 
 			let (maxerr, toterr) = (agents[0].maxerr, agents[0].toterr);
 			let gen              = agents[0].brain.generation;
@@ -80,10 +80,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			if toterr == prverr[partit] {
 				stayed += 1;
 				if stayed > 63 {
-					println!("\r{st:<34} [==========================>]\n\nn={n}");
+					println!("\n\nn={n}");
 					break
 				}
 			} else {
+				if toterr < prverr[partit]/1.5 && n > 2048 {println!("")}
 				prverr[partit] = toterr;
 				stayed         = 0
 			}
