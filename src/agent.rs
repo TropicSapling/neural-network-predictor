@@ -78,6 +78,11 @@ impl Agent {
 		self
 	}
 
+	fn mutate(mut self) -> Self {
+		self.brain.mutate();
+		self
+	}
+
 	fn with(brain: Brain) -> Self {
 		Agent {brain, maxerr: 0.0, toterr: 0.0}
 	}
@@ -99,11 +104,6 @@ impl Agent {
 		}
 
 		&agents[0] // first agent as backup (chance: 1/e^7 ~ 0.09%)
-	}
-
-	fn mutate(mut self) -> Self {
-		self.brain.mutate();
-		self
 	}
 }
 
@@ -183,18 +183,14 @@ impl Brain {
 				recv_neuron.reachable = true
 			}
 
-			// ... and finally reset excitation & apply potential STDP changes
-			match is_input {
-				true => {
-					self.neurons_inp[i].excitation = 0.0;
-					self.neurons_inp[i].next_conn  = activations
-				}
+			let neuron = match is_input {
+				true => &mut self.neurons_inp[i],
+				_    => &mut self.neurons_hid[i]
+			};
 
-				_ => {
-					self.neurons_hid[i].excitation = 0.0;
-					self.neurons_hid[i].next_conn  = activations
-				}
-			}
+			// ... and finally reset excitation & apply potential STDP changes
+			neuron.excitation = 0.0;
+			neuron.next_conn  = activations
 		}
 	}
 

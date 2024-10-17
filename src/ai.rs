@@ -26,13 +26,12 @@ pub fn update_ai(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
 		err1 = (predictions[1] - predictions[0] - aim).abs()
 	}
 
+	agent.toterr += err1;
+
 	// If error was worse for this input, record that
 	if err1 > agent.maxerr {
 		agent.maxerr = err1
 	}
-
-	// Add error to total
-	agent.toterr += err1;
 
 	predictions
 }
