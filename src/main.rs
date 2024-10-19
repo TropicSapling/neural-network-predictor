@@ -31,9 +31,11 @@ fn print_agent(agent: &mut Agent, inputs: [f64; INPS*4], targets: &[f64]) {
 	}
 }
 
-fn optimise(agents: &mut Vec<Agent>, new_size: usize) {
-	let rank = |agent: &Agent| agent.maxerr.powf(2.0) + agent.toterr;
+fn rank(agent: &Agent) -> (f64, usize) {
+	(agent.maxerr.powf(2.0) + agent.toterr, agent.brain.generation)
+}
 
+fn optimise(agents: &mut Vec<Agent>, new_size: usize) {
 	agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
 	agents.truncate(new_size);
 }
