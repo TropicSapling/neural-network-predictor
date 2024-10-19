@@ -309,11 +309,11 @@ impl Neuron {
 
 			reachable: false,
 
-			inv_mut: 1
+			inv_mut: 2
 		}
 	}
 
-	// By default 50/50 if mutation of mutation rate or not
+	// By default 11/89 if mutation of mutation rate or not
 	fn should_mutate_mut(inv_mut: usize) -> bool {rand_range(0..=inv_mut.pow(3)) == 0}
 	// By default 50/50 if mutation or not
 	fn should_mutate_now(inv_mut: usize) -> bool {rand_range(0..=inv_mut) == 0}
@@ -330,17 +330,11 @@ impl Neuron {
 			self.inv_mut.add_bounded([-1, 1][rand_range(0..=1)])}
 		if Neuron::should_mutate_now(self.inv_mut) {
 			self.tick_drain += [-1.0, 1.0][rand_range(0..=1)]}
-		if Neuron::should_mutate_mut(self.inv_mut) {
-			self.tick_drain *= [0.50, 2.0][rand_range(0..=1)]}
 		if Neuron::should_mutate_now(self.inv_mut) {
 			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]}
-		if Neuron::should_mutate_mut(self.inv_mut) {
-			self.act_threshold *= [0.50, 2.0][rand_range(0..=1)]}
 
 		// Mutate outgoing connections
 		for conn in &mut self.next_conn {
-			let (half, double) = (conn.weight/2.0, conn.weight*2.0);
-
 			if Neuron::should_mutate_now(self.inv_mut) {
 				if rand_range(0..(2 + conn.weight.abs() as usize)) == 0 {
 					// Sometimes flip weight
@@ -349,22 +343,13 @@ impl Neuron {
 					if Neuron::should_expand_now() {
 						// Sometimes expand weight or other stuff
 						match rand_range(0..3) {
-							0 => if Neuron::should_mutate_mut(self.inv_mut) {
-								Neuron::expand_or_shrink(&mut conn.weight, double)
-							} else {
-								Neuron::expand_or_shrink(&mut conn.weight, 1.0)
-							},
-
+							0 => Neuron::expand_or_shrink(&mut conn.weight, 1.0),
 							1 => *new_conn_count   += 1,
 							_ => *new_neuron_count += 1
 						}
 					} else {
 						// Sometimes shrink weight (which can effectively remove)
-						if Neuron::should_mutate_mut(self.inv_mut) {
-							Neuron::expand_or_shrink(&mut conn.weight, half)
-						} else {
-							Neuron::expand_or_shrink(&mut conn.weight, -1.0)
-						}
+						Neuron::expand_or_shrink(&mut conn.weight, -1.0)
 					}
 				}
 			}

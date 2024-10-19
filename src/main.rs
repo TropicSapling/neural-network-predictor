@@ -8,6 +8,9 @@ mod output;
 use agent::*;
 use ai::update_ai;
 
+// All I/O is upscaled/downscaled by 1000x
+const RESOLUTION: f64 = 1000.0;
+
 fn print_agent(agent: &mut Agent, inputs: [f64; INPS*4], targets: &[f64]) {
 	let (brain, maxerr, toterr) = (&agent.brain, agent.maxerr, agent.toterr);
 
@@ -31,8 +34,8 @@ fn print_agent(agent: &mut Agent, inputs: [f64; INPS*4], targets: &[f64]) {
 	}
 }
 
-fn rank(agent: &Agent) -> (f64, usize) {
-	(agent.maxerr.powf(2.0) + agent.toterr, agent.brain.generation)
+fn rank(agent: &Agent) -> (f64, f64, usize) {
+	(agent.maxerr, agent.toterr, agent.brain.generation)
 }
 
 fn optimise(agents: &mut Vec<Agent>, new_size: usize) {
@@ -49,7 +52,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut agents: Vec<Agent> = vec![];
 	let mut totsum = 0.0;
 	let mut maxsum = 0.0;
-	let mut prverr = [0.0; 2];
+	let mut prverr = [(0.0, 0.0); 2];
+	let mut bsterr = (f64::MAX, f64::MAX);
 	let mut stayed = 0;
 	let mut partit = 0;
 	for n in 1..=53248 {
@@ -79,16 +83,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			std::io::stdout().flush().unwrap();
 
 			// Quit training if things have started to converge
-			if toterr == prverr[partit] {
+			if (toterr, maxerr) == prverr[partit] {
 				stayed += 1;
 				if stayed > 63 {
 					println!("\n\nn={n}");
 					break
 				}
 			} else {
-				if toterr < prverr[partit]/1.5 && n > 2048 {println!("")}
-				prverr[partit] = toterr;
-				stayed         = 0
+				prverr[partit] = (toterr, maxerr);
+				stayed         = 0;
+
+				let mut worst_err: (f64, f64) = (0.0, 0.0);
+				for err in prverr {
+					worst_err.0 = worst_err.0.max(err.0);
+					worst_err.1 = worst_err.1.max(err.1);
+				}
+
+				if worst_err.0 < bsterr.0/4.0 || worst_err.1 < bsterr.1/4.0 {
+					bsterr = worst_err;
+					if n > 2048 {println!("")}
+				}
 			}
 
 			// Change input & target partitions - rerun for existing agents

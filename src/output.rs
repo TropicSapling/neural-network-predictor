@@ -18,5 +18,7 @@ pub fn assign(predictions: &mut [f64; OUTS], output: &mut [Neuron; OUTS]) {
 			// ... and reset excitation
 			out.excitation = 0.0
 		}
+
+		predictions[n] /= crate::RESOLUTION // downscale by `RESOLUTION`
 	}
 }
