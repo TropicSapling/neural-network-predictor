@@ -5,6 +5,8 @@ mod agent;
 mod input;
 mod output;
 
+use std::{error::Error, io::{stdout, Write}, time::Duration};
+
 use agent::*;
 use ai::update_ai;
 
@@ -30,20 +32,32 @@ fn print_agent(agent: &mut Agent, inputs: [f64; INPS*4], targets: &[f64]) {
 		let res = out[1] - out[0];
 		let err = (res - tgt).abs();
 
-		println!("{inp} => {out:>6.2?} => {res:<6.2} (err={err:<5.2}) <= {tgt:.2}")
+		println!("{inp} => {out:>5.2?} => {res:<5.2} (err={err:<4.2}) <= {tgt:.2}")
 	}
 }
 
-fn rank(agent: &Agent) -> (f64, f64, usize) {
-	(agent.maxerr, agent.toterr, agent.brain.generation)
+fn printdbg(agents: &Vec<Agent>, n: usize) {
+	let (maxerr, toterr) = (agents[0].maxerr, agents[0].toterr);
+	let gen              = agents[0].brain.generation;
+	let t                = agents[0].runtime;
+
+	let pb = format!("[{}>{}]", "=".repeat(n/2048), " ".repeat(26-n/2048));
+	let st = format!("maxerr={maxerr:.2}, toterr={toterr:.2}, time={t:?}, gen={gen}");
+
+	print!("\r{st:<47} {pb}");
+	stdout().flush().unwrap();
 }
 
-fn optimise(agents: &mut Vec<Agent>, new_size: usize) {
+fn rank(agent: &Agent) -> (f64, f64, isize, Duration) {
+	(agent.maxerr, agent.toterr, -(agent.brain.generation as isize), agent.runtime)
+}
+
+fn optimise(agents: &mut Vec<Agent>) {
 	agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
-	agents.truncate(new_size);
+	agents.truncate(128);
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
 	println!("");
 
 	let inputs  = input::inputs()?;
@@ -54,7 +68,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut maxsum = 0.0;
 	let mut prverr = [(0.0, 0.0); 2];
 	let mut bsterr = (f64::MAX, f64::MAX);
-	let mut stayed = 0;
 	let mut partit = 0;
 	for n in 1..=53248 {
 		agents.push(Agent::from(&agents, totsum, maxsum));
@@ -72,37 +85,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 		// Remove worse-performing majority of agents once in a while
 		if n % 256 == 0 {
-			optimise(&mut agents, 128/(stayed+1));
-
-			let (maxerr, toterr) = (agents[0].maxerr, agents[0].toterr);
-			let gen              = agents[0].brain.generation;
-			let pb = format!("[{}>{}]", "=".repeat(n/2048), " ".repeat(26-n/2048));
-			let st = format!("maxerr={maxerr:.2}, toterr={toterr:.2}, gen={gen}");
-			print!("\r{st:<34} {pb}");
-			use std::io::Write;
-			std::io::stdout().flush().unwrap();
+			optimise(&mut agents);
+			printdbg(&agents, n);
 
 			// Quit training if things have started to converge
-			if (toterr, maxerr) == prverr[partit] {
-				stayed += 1;
-				if stayed > 63 {
-					println!("\n\nn={n}");
-					break
-				}
-			} else {
-				prverr[partit] = (toterr, maxerr);
-				stayed         = 0;
+			prverr[partit] = (agents[0].toterr, agents[0].maxerr);
 
-				let mut worst_err: (f64, f64) = (0.0, 0.0);
-				for err in prverr {
-					worst_err.0 = worst_err.0.max(err.0);
-					worst_err.1 = worst_err.1.max(err.1);
-				}
+			let mut worst_err: (f64, f64) = (0.0, 0.0);
+			for err in prverr {
+				worst_err.0 = worst_err.0.max(err.0);
+				worst_err.1 = worst_err.1.max(err.1);
+			}
 
-				if worst_err.0 < bsterr.0/4.0 || worst_err.1 < bsterr.1/4.0 {
-					bsterr = worst_err;
-					if n > 2048 {println!("")}
-				}
+			if worst_err.0 < bsterr.0/4.0 || worst_err.1 < bsterr.1/4.0 {
+				bsterr = worst_err;
+				if n > 2048 {println!("")}
 			}
 
 			// Change input & target partitions - rerun for existing agents
@@ -120,9 +117,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				maxsum += 1.0/agent.maxerr;
 			}
 		}
-
-		if n == 53248 {println!("")}
 	}
+
+	println!("\n\nn=53248");
 
 	// Print top agent
 	agents.sort_by(|a, b| a.toterr.partial_cmp(&b.toterr).unwrap());

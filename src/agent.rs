@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, time::Duration};
 
 use crate::helpers::*;
 
@@ -13,7 +13,9 @@ macro_rules! arr {
 pub struct Agent {
 	pub brain  : Brain,
 	pub maxerr : f64,
-	pub toterr : f64
+	pub toterr : f64,
+
+	pub runtime: Duration
 }
 
 
@@ -84,7 +86,7 @@ impl Agent {
 	}
 
 	fn with(brain: Brain) -> Self {
-		Agent {brain, maxerr: 0.0, toterr: 0.0}
+		Agent {brain, maxerr: 0.0, toterr: 0.0, runtime: Duration::new(0, 0)}
 	}
 
 	fn merge(parent1: &Self, parent2: &Self) -> Self {
@@ -356,7 +358,7 @@ impl Neuron {
 		}
 
 		// Remove effectively dead connections
-		self.next_conn.retain(|conn| (conn.weight*10.0).round() != 0.0);
+		self.next_conn.retain(|conn| conn.weight != 0.0);
 
 		// If this neuron is inactive, try recycling it
 		if self.next_conn.len() < 1 && *new_neuron_count > 0 {

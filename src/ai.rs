@@ -9,6 +9,7 @@ pub fn update_ai(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
 	let mut err0 = 1.0;
 	let mut err1 = 0.0;
 	// Run until we get a "final" output error
+	let time = std::time::Instant::now();
 	for _ in 0..4 {
 		if err1 == err0 {break}
 
@@ -26,6 +27,7 @@ pub fn update_ai(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
 		err1 = (predictions[1] - predictions[0] - aim).abs()
 	}
 
+	agent.runtime = time.elapsed();
 	agent.toterr += err1;
 
 	// If error was worse for this input, record that
