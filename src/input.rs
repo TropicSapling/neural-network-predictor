@@ -12,10 +12,17 @@ pub fn inputs() -> Result<[f64; INPS*4], Box<dyn Error>> {
 	let mut csv = csv::Reader::from_reader(stdin());
 
 	// Parse the CSV row-by-row and save as input
+	let mut prev = 0.0;
 	for (i, res) in csv.deserialize().enumerate() {
 		let rec: (f64, f64) = res?;
 
-		inp[i] = rec.1 - rec.0
+		if i >= INPS*4 {
+			break
+		} else if i > 0 {
+			inp[INPS*4 - 1 - i] = prev - rec.1
+		}
+
+		prev = rec.0
 	}
 
 	Ok(inp)

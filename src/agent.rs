@@ -61,7 +61,7 @@ pub struct OutwardConn {
 
 
 impl Agent {
-	pub fn from(agents: &Vec<Agent>, maxsum: f64, minsum: f64) -> Self {
+	pub fn from(agents: &Vec<Agent>, maxsum: f64, totsum: f64) -> Self {
 		// Create entirely new agents the first two times
 		if agents.len() < 2 {
 			return Agent::with(Brain::new(1, 0))
@@ -69,7 +69,7 @@ impl Agent {
 
 		// Select parents
 		let parent1 = Agent::select(agents, |parent| parent.maxerr, maxsum);
-		let parent2 = Agent::select(agents, |parent| parent.toterr, minsum);
+		let parent2 = Agent::select(agents, |parent| parent.toterr, totsum);
 
 		// Return child of both
 		Agent::merge(parent1, parent2)
