@@ -38,7 +38,7 @@ fn print_agent(agent: &mut Agent, data: [f64; INPS*4]) {
 
 fn printdbg(agent: &Agent, n: usize) {
 	let (maxerr, toterr) = (agent.maxerr, agent.toterr);
-	let gen              = agent.brain.generation;
+	let gen              = agent.brain.gen;
 	let t                = agent.runtime;
 
 	let pb = format!("[{}>{}]", "=".repeat(n/2048), " ".repeat(26-n/2048));
@@ -49,7 +49,7 @@ fn printdbg(agent: &Agent, n: usize) {
 }
 
 fn rank(agent: &Agent) -> (f64, f64, isize, Duration) {
-	(agent.maxerr, agent.toterr, -(agent.brain.generation as isize), agent.runtime)
+	(agent.maxerr, agent.toterr, -(agent.brain.gen as isize), agent.runtime)
 }
 
 fn optimise(agents: &mut Vec<Agent>) {
@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 			// Run against validation set (cross-validation)
 			let maxerr0  = agents[0].maxerr;
-			let val_errs = validate(&mut agents, &data, (partit + 1) % 2);
+			//let val_errs = validate(&mut agents, &data, (partit + 1) % 2);
 
 			// Sort based on validation set performance
 			agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
@@ -121,7 +121,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 			if agents[0].maxerr > maxerr0 {
 				partit = (partit + 1) % 2;
 				dbg!(partit);
-				errsum = val_errs
+				//errsum = val_errs
 			}
 		}
 

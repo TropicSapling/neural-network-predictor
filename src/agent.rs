@@ -31,7 +31,7 @@ pub struct Brain {
 	neurons_hid: Vec<Neuron>,
 	neurons_out: [Neuron; OUTS],
 
-	pub generation: usize // for debugging/display
+	pub gen: usize
 }
 
 #[derive(Clone)]
@@ -259,12 +259,12 @@ impl Brain {
 		}
 	}
 
-	fn new(n: usize, generation: usize) -> Self {
+	fn new(n: usize, gen: usize) -> Self {
 		Brain {
 			neurons_inp: arr![Neuron::new(1+OUTS)   ],
 			neurons_hid: vec![Neuron::new(1+OUTS); n],
 			neurons_out: arr![Neuron::new(1+OUTS)   ],
-			generation
+			gen
 		}
 	}
 
@@ -272,7 +272,7 @@ impl Brain {
 		let minhid = brain1.neurons_hid.len().min(brain2.neurons_hid.len());
 		let maxhid = brain1.neurons_hid.len().max(brain2.neurons_hid.len());
 
-		let mut brain = Brain::new(maxhid, brain1.generation + 1);
+		let mut brain = Brain::new(maxhid, brain1.gen.max(brain2.gen) + 1);
 
 		// Merge input neurons
 		for i in 0..INPS {
@@ -440,7 +440,7 @@ impl fmt::Debug for Brain {
 			s += &format!("\t\t#{i}: {neuron:#?},\n")
 		}
 
-		write!(f, "{s}\t],\n\n\tgeneration: {},\n}}", self.generation)
+		write!(f, "{s}\t],\n\n\tgen: {},\n}}", self.gen)
 	}
 }
 
