@@ -317,7 +317,7 @@ impl Neuron {
 
 	// By default 11/89 if mutation of mutation rate or not
 	fn should_mutate_mut(inv_mut: usize) -> bool {rand_range(0..=inv_mut.pow(3)) == 0}
-	// By default 50/50 if mutation or not
+	// By default 33/67 if mutation or not
 	fn should_mutate_now(inv_mut: usize) -> bool {rand_range(0..=inv_mut) == 0}
 	// Always 50/50 if expansion or shrinking
 	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
