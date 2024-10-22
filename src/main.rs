@@ -25,7 +25,7 @@ fn print_agent(agent: &mut Agent, data: [f64; INPS*4]) {
 			println!("\n    ======================================================\n")
 		}
 
-		let inp = format!("{:<5.2} .. {:<5.2}", data[i], data[i+INPS-1]);
+		let inp = format!("#{i:<3} - {:<5.2} .. {:<5.2}", data[i], data[i+INPS-1]);
 		let tgt = data[i+INPS];
 		let out = update_ai(agent.reset(), &data[i..i+INPS], tgt);
 
@@ -41,7 +41,7 @@ fn printdbg(agent: &Agent, n: usize) {
 	let gen              = agent.brain.gen;
 	let t                = agent.runtime;
 
-	let pb = format!("[{}>{}]", "=".repeat(n/2048), " ".repeat(26-n/2048));
+	let pb = format!("[{}>{}]", "=".repeat(n/1024), " ".repeat(26-n/1024));
 	let st = format!("maxerr={maxerr:.2}, toterr={toterr:.2}, time={t:?}, gen={gen}");
 
 	print!("\r{st:<49} {pb}");
@@ -97,7 +97,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 	let mut errsum: InvErrSum  = InvErrSum::new();
 
 	let mut partit = 0;
-	for n in 1..=53248 {
+	for n in 1..=26624 {
 		let mut agent = Agent::from(&agents, errsum.maxerr, errsum.toterr);
 
 		update(&mut agent, &mut errsum, &data[partit*INPS..(partit+2)*INPS]);
@@ -126,10 +126,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 				errsum = val_errs
 			} else {
 				// Restore training errors
+				errsum = InvErrSum::new();
 				for (i, agent) in agents.iter_mut().enumerate() {
-					agent.maxerr = train_errs[i].0;
-					agent.toterr = train_errs[i].1;
+					//agent.maxerr = train_errs[i].0;
+					//agent.toterr = train_errs[i].1;
+					// TODO: figure out why below is needed and above not working...
+					update(agent, &mut errsum, &data[partit*INPS..(partit+2)*INPS]);
 				}
+
+				// Resort (only needed for printing top scoring agent later)
+				agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
 			}
 
 			// Print top agent scores
@@ -139,10 +145,18 @@ fn main() -> Result<(), Box<dyn Error>> {
 		if n % 8192 == 0 {println!("")}
 	}
 
-	println!("\n\nn=53248");
+	println!("\n\nn=26624");
 
 	// Print final top agent
 	print_agent(&mut agents[0], data);
+
+	// CULPRIT?
+	// Result changes (usually increases) every re-run. Not supposed to happen!
+	// Suspect that it might be STDP not resetting...
+	for _ in 0..256 {
+		update(&mut agents[0], &mut errsum, &data[partit*INPS..(partit+2)*INPS]);
+		dbg!(agents[0].maxerr);
+	}
 
 	Ok(())
 }

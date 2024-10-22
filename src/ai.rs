@@ -10,7 +10,7 @@ pub fn update_ai(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
 	let mut err1 = 0.0;
 	// Run until we get a "final" output error
 	let time = std::time::Instant::now();
-	for _ in 0..4 {
+	for _ in 0..16 {
 		if err1 == err0 {break}
 
 		// Input
