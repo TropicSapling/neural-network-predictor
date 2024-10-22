@@ -16,10 +16,10 @@ pub fn inputs() -> Result<[f64; INPS*4], Box<dyn Error>> {
 	for (i, res) in csv.deserialize().enumerate() {
 		let rec: (f64, f64) = res?;
 
-		if i >= INPS*4 {
+		if i > INPS*4 {
 			break
 		} else if i > 0 {
-			inp[INPS*4 - 1 - i] = prev - rec.1
+			inp[INPS*4 - i] = prev - rec.1
 		}
 
 		prev = rec.0

@@ -109,26 +109,31 @@ fn main() -> Result<(), Box<dyn Error>> {
 			optimise(&mut agents);
 
 			// Backup training errors
-			// TODO ...
+			let mut train_errs = vec![];
+			for agent in &agents {
+				train_errs.push((agent.maxerr, agent.toterr))
+			}
 
 			// Run against validation set (cross-validation)
-			let maxerr0  = agents[0].maxerr;
-			//let val_errs = validate(&mut agents, &data, (partit + 1) % 2);
+			let val_errs = validate(&mut agents, &data, (partit + 1) % 2);
 
 			// Sort based on validation set performance
 			agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
-			// And print top agent scores
-			printdbg(&agents[0], n);
 
 			// Switch training set if performance was poor
-			if agents[0].maxerr > maxerr0 {
+			if agents[0].maxerr > train_errs[0].0 {
 				partit = (partit + 1) % 2;
-				dbg!(partit);
-				//errsum = val_errs
+				errsum = val_errs
 			} else {
 				// Restore training errors
-				// TODO ...
+				for (i, agent) in agents.iter_mut().enumerate() {
+					agent.maxerr = train_errs[i].0;
+					agent.toterr = train_errs[i].1;
+				}
 			}
+
+			// Print top agent scores
+			printdbg(&agents[0], n)
 		}
 
 		if n % 8192 == 0 {println!("")}
@@ -137,7 +142,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 	println!("\n\nn=53248");
 
 	// Print final top agent
-	agents.sort_by(|a, b| a.toterr.partial_cmp(&b.toterr).unwrap());
 	print_agent(&mut agents[0], data);
 
 	Ok(())
