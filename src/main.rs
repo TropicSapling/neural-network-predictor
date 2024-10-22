@@ -108,6 +108,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 		if n % 256 == 0 {
 			optimise(&mut agents);
 
+			// Backup training errors
+			// TODO ...
+
 			// Run against validation set (cross-validation)
 			let maxerr0  = agents[0].maxerr;
 			//let val_errs = validate(&mut agents, &data, (partit + 1) % 2);
@@ -122,6 +125,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 				partit = (partit + 1) % 2;
 				dbg!(partit);
 				//errsum = val_errs
+			} else {
+				// Restore training errors
+				// TODO ...
 			}
 		}
 
