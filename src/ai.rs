@@ -27,6 +27,8 @@ pub fn update_ai(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
 		err1 = (predictions[1] - predictions[0] - aim).abs()
 	}
 
+	agent.brain.discharge();
+
 	agent.runtime = time.elapsed();
 	agent.toterr += err1;
 

@@ -27,7 +27,7 @@ fn print_agent(agent: &mut Agent, data: [f64; INPS*4]) {
 
 		let inp = format!("#{i:<3} - {:<5.2} .. {:<5.2}", data[i], data[i+INPS-1]);
 		let tgt = data[i+INPS];
-		let out = update_ai(agent.reset(), &data[i..i+INPS], tgt);
+		let out = update_ai(agent, &data[i..i+INPS], tgt);
 
 		let res = out[1] - out[0];
 		let err = (res - tgt).abs();
@@ -44,7 +44,7 @@ fn printdbg(agent: &Agent, n: usize) {
 	let pb = format!("[{}>{}]", "=".repeat(n/1024), " ".repeat(26-n/1024));
 	let st = format!("maxerr={maxerr:.2}, toterr={toterr:.2}, time={t:?}, gen={gen}");
 
-	print!("\r{st:<49} {pb}");
+	print!("\r{st:<50} {pb}");
 	stdout().flush().unwrap();
 }
 
@@ -70,7 +70,7 @@ fn update(agent: &mut Agent, errsum: &mut InvErrSum, data: &[f64]) {
 	agent.maxerr = 0.0;
 	agent.toterr = 0.0;
 	for i in 0..INPS {
-		update_ai(agent.reset(), &data[i..i+INPS], data[i+INPS]);
+		update_ai(agent, &data[i..i+INPS], data[i+INPS]);
 	}
 
 	errsum.maxerr += 1.0/agent.maxerr;
@@ -115,27 +115,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 			}
 
 			// Run against validation set (cross-validation)
-			let val_errs = validate(&mut agents, &data, (partit + 1) % 2);
-
-			// Sort based on validation set performance
-			agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
+			let val_errsum = validate(&mut agents, &data, (partit + 1) % 2);
 
 			// Switch training set if performance was poor
 			if agents[0].maxerr > train_errs[0].0 {
 				partit = (partit + 1) % 2;
-				errsum = val_errs
+				errsum = val_errsum;
+
+				// Resort (only needed for printing top scoring agent later)
+				agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap())
 			} else {
 				// Restore training errors
 				errsum = InvErrSum::new();
 				for (i, agent) in agents.iter_mut().enumerate() {
-					//agent.maxerr = train_errs[i].0;
-					//agent.toterr = train_errs[i].1;
-					// TODO: figure out why below is needed and above not working...
-					update(agent, &mut errsum, &data[partit*INPS..(partit+2)*INPS]);
+					agent.maxerr = train_errs[i].0;
+					agent.toterr = train_errs[i].1;
 				}
-
-				// Resort (only needed for printing top scoring agent later)
-				agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap());
 			}
 
 			// Print top agent scores
@@ -149,14 +144,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 	// Print final top agent
 	print_agent(&mut agents[0], data);
-
-	// CULPRIT?
-	// Result changes (usually increases) every re-run. Not supposed to happen!
-	// Suspect that it might be STDP not resetting...
-	for _ in 0..256 {
-		update(&mut agents[0], &mut errsum, &data[partit*INPS..(partit+2)*INPS]);
-		dbg!(agents[0].maxerr);
-	}
 
 	Ok(())
 }

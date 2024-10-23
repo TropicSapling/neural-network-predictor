@@ -18,8 +18,6 @@ pub struct Agent {
 	pub runtime: Duration
 }
 
-// TODO: Simplify. Remove tick drain, fix STDP.
-
 
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
@@ -38,15 +36,12 @@ pub struct Brain {
 
 #[derive(Clone)]
 pub struct Neuron {
-	pub excitation: f64,
-	pub tick_drain: f64,
-
-	pub act_threshold: f64,
+	pub excitation    : f64,
+	pub act_threshold : f64,
 
 	pub next_conn: Vec<OutwardConn>,
 
 	reachable: bool,
-
 	inv_mut: usize
 }
 
@@ -75,11 +70,6 @@ impl Agent {
 
 		// Return child of both
 		Agent::merge(parent1, parent2)
-	}
-
-	pub fn reset(&mut self) -> &mut Self {
-		self.brain.reset();
-		self
 	}
 
 	fn mutate(mut self) -> Self {
@@ -119,20 +109,20 @@ impl Agent {
 impl Brain {
 	pub fn input(&mut self) -> &mut [Neuron; INPS] {&mut self.neurons_inp}
 
-	pub fn update_neurons(&mut self) -> &mut [Neuron; OUTS] {
-		// Drain output neurons from previous excitation
-		for i in 0..OUTS {
-			self.neurons_out[i].drain()
+	pub fn discharge(&mut self) {
+		for neuron in &mut self.neurons_hid {
+			neuron.excitation = 0.0
 		}
+	}
 
+	pub fn update_neurons(&mut self) -> &mut [Neuron; OUTS] {
 		for i in 0..self.neurons_inp.len() {
 			self.neurons_inp[i].reachable = true; // input neurons always reachable
 			self.update_neuron(i, true)
 		}
 
 		for i in 0..self.neurons_hid.len() {
-			self.update_neuron(i, false);
-			self.neurons_hid[i].drain()
+			self.update_neuron(i, false)
 		}
 
 		&mut self.neurons_out
@@ -140,12 +130,13 @@ impl Brain {
 
 	fn update_neuron(&mut self, i: usize, is_input: bool) {
 		let neuron = match is_input {
-			true => &self.neurons_inp[i],
-			_    => &self.neurons_hid[i]
+			true => &mut self.neurons_inp[i],
+			_    => &mut self.neurons_hid[i]
 		};
 
 		let excitation = neuron.excitation;
-// TODO reset excitation already here
+		// Reset excitation
+		neuron.excitation = 0.0;
 
 		// If neuron activated...
 		if excitation >= neuron.act_threshold {
@@ -163,7 +154,7 @@ impl Brain {
 					&mut self.neurons_hid[conn.dest_index - OUTS]
 				};
 
-				let prev_recv_excitation = recv_neuron.excitation;
+				//let prev_recv_excitation = recv_neuron.excitation;
 
 				if conn.relu {
 					recv_neuron.excitation += conn.weight * excitation
@@ -172,13 +163,14 @@ impl Brain {
 
 					// STDP (Spike-Timing-Dependent Plasticity)
 					// TODO: maybe make more realistic?
-					if prev_recv_excitation >= recv_neuron.act_threshold {
+					// NOTE: Having this on => network changes on every run!
+					/*if prev_recv_excitation >= recv_neuron.act_threshold {
 						// Receiver already has fired => weaken connection
 						Neuron::expand_or_shrink(&mut conn.weight, -1.0)
 					} else if recv_neuron.excitation >= recv_neuron.act_threshold {
 						// Receiver firing thanks to this => strengthen connection
 						Neuron::expand_or_shrink(&mut conn.weight, 1.0)
-					}
+					}*/
 				}
 
 				recv_neuron.reachable = true
@@ -189,9 +181,8 @@ impl Brain {
 				_    => &mut self.neurons_hid[i]
 			};
 
-			// ... and finally reset excitation & apply potential STDP changes
-			neuron.excitation = 0.0;
-			neuron.next_conn  = activations
+			// ... and finally apply potential STDP changes
+			neuron.next_conn = activations
 		}
 	}
 
@@ -248,16 +239,6 @@ impl Brain {
 		}
 	}
 
-	fn reset(&mut self) {
-		for neuron in &mut self.neurons_hid {
-			neuron.excitation = 0.0
-		}
-
-		for neuron in &mut self.neurons_out {
-			neuron.excitation = 0.0
-		}
-	}
-
 	fn new(n: usize, gen: usize) -> Self {
 		Brain {
 			neurons_inp: arr![Neuron::new(1+OUTS)   ],
@@ -301,15 +282,12 @@ impl Brain {
 impl Neuron {
 	fn new(recv_neuron_count: usize) -> Self {
 		Neuron {
-			excitation: 0.0,
-			tick_drain: 1.0,
-
-			act_threshold: 0.0,
+			excitation    : 0.0,
+			act_threshold : 0.0,
 
 			next_conn: vec![OutwardConn::new(recv_neuron_count)],
 
 			reachable: false,
-
 			inv_mut: 2
 		}
 	}
@@ -329,8 +307,6 @@ impl Neuron {
 		// Mutate neuron properties
 		if Neuron::should_mutate_mut(self.inv_mut) {
 			self.inv_mut.add_bounded([-1, 1][rand_range(0..=1)])}
-		if Neuron::should_mutate_now(self.inv_mut) {
-			self.tick_drain += [-1.0, 1.0][rand_range(0..=1)]}
 		if Neuron::should_mutate_now(self.inv_mut) {
 			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]}
 
@@ -377,10 +353,6 @@ impl Neuron {
 			0 => *self = neuron1.clone(),
 			_ => *self = neuron2.clone()
 		}
-	}
-
-	fn drain(&mut self) {
-		Neuron::expand_or_shrink(&mut self.excitation, -self.tick_drain.abs())
 	}
 
 	fn expand_or_shrink(state: &mut f64, change: f64) {
