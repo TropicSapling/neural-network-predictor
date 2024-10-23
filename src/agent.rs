@@ -18,6 +18,8 @@ pub struct Agent {
 	pub runtime: Duration
 }
 
+// TODO: Simplify. Remove tick drain, fix STDP.
+
 
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
@@ -143,6 +145,7 @@ impl Brain {
 		};
 
 		let excitation = neuron.excitation;
+// TODO reset excitation already here
 
 		// If neuron activated...
 		if excitation >= neuron.act_threshold {
