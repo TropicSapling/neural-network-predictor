@@ -12,16 +12,18 @@ use ai::update_ai;
 
 // All I/O is upscaled/downscaled by 1000x
 const RESOLUTION: f64 = 1000.0;
+// Partitions for cross-validation
+const PARTITIONS: usize = 4;
 
-fn print_agent(agent: &mut Agent, data: [f64; INPS*4]) {
+fn print_agent(agent: &mut Agent, data: [f64; INPS*6]) {
 	let (brain, maxerr, toterr) = (&agent.brain, agent.maxerr, agent.toterr);
 
 	println!("\nNeural Network: {brain:#?}\n\nmaxerr={maxerr}\ntoterr={toterr}\n");
 
 	agent.toterr = 0.0;
 	agent.maxerr = 0.0;
-	for i in 0..INPS*3 {
-		if i == INPS*2 {
+	for i in 0..INPS*(PARTITIONS+1) {
+		if i == INPS*PARTITIONS {
 			println!("\n    ======================================================\n")
 		}
 
@@ -44,7 +46,7 @@ fn printdbg(agent: &Agent, n: usize) {
 	let pb = format!("[{}>{}]", "=".repeat(n/1024), " ".repeat(26-n/1024));
 	let st = format!("maxerr={maxerr:.2}, toterr={toterr:.2}, time={t:?}, gen={gen}");
 
-	print!("\r{st:<50} {pb}");
+	print!("\r{st:<52} {pb}");
 	stdout().flush().unwrap();
 }
 
@@ -57,7 +59,7 @@ fn optimise(agents: &mut Vec<Agent>) {
 	agents.truncate(128);
 }
 
-fn validate(agents: &mut Vec<Agent>, data: &[f64; INPS*4], p: usize) -> InvErrSum {
+fn validate(agents: &mut Vec<Agent>, data: &[f64; INPS*6], p: usize) -> InvErrSum {
 	let mut errsum = InvErrSum::new();
 	for agent in agents {
 		update(agent, &mut errsum, &data[p*INPS..(p+2)*INPS]);
@@ -115,11 +117,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 			}
 
 			// Run against validation set (cross-validation)
-			let val_errsum = validate(&mut agents, &data, (partit + 1) % 2);
+			let val_errsum = validate(&mut agents, &data, (partit + 1) % PARTITIONS);
 
 			// Switch training set if performance was poor
 			if agents[0].maxerr > train_errs[0].0 {
-				partit = (partit + 1) % 2;
+				partit = (partit + 1) % PARTITIONS;
 				errsum = val_errsum;
 
 				// Resort (only needed for printing top scoring agent later)

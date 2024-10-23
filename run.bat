@@ -1,1 +1,1 @@
-cargo run --release < data/io.csv
+cargo run --release < data/weak_oscillating_exp.csv
