@@ -27,14 +27,14 @@ fn print_agent(agent: &mut Agent, data: [f64; INPS*6]) {
 			println!("\n    ======================================================\n")
 		}
 
-		let inp = format!("#{i:<3} - {:<5.2} .. {:<5.2}", data[i], data[i+INPS-1]);
+		let inp = format!("#{i:<3} - {:<6.2} .. {:<6.2}", data[i], data[i+INPS-1]);
 		let tgt = data[i+INPS];
 		let out = update_ai(agent, &data[i..i+INPS], tgt);
 
 		let res = out[1] - out[0];
 		let err = (res - tgt).abs();
 
-		println!("{inp} => {out:>5.2?} => {res:<5.2} (err={err:<4.2}) <= {tgt:.2}")
+		println!("{inp} => {out:>6.2?} => {res:<6.2} (err={err:<4.2}) <= {tgt:.2}")
 	}
 }
 
