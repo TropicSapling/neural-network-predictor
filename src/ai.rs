@@ -1,6 +1,17 @@
-use crate::{agent::*, input, output};
+use crate::{agent::*, input, output, trainer::InvErrSum};
 
-pub fn update_ai(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
+pub fn test(agent: &mut Agent, errsum: &mut InvErrSum, data: &[f64]) {
+	agent.maxerr = 0.0;
+	agent.toterr = 0.0;
+	for i in 0..INPS {
+		run(agent, &data[i..i+INPS], data[i+INPS]);
+	}
+
+	errsum.maxerr += 1.0/agent.maxerr;
+	errsum.toterr += 1.0/agent.toterr;
+}
+
+pub fn run(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
 	// TODO: If get poor results, try pseudo-normalize i/o using log(...)
 	// - Could potentially have "log" variant for each neuron
 	// - ALSO: maybe try backpropagation?
