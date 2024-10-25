@@ -12,8 +12,8 @@ use std::error::Error;
 use agent::*;
 use data::*;
 
-// All I/O is upscaled/downscaled by 1000x
-const RESOLUTION: f64 = 1000.0;
+// All I/O is upscaled/downscaled by 1024x
+const RESOLUTION: f64 = 1024.0;
 // Partitions for cross-validation
 const PARTITIONS: usize = 2;
 
