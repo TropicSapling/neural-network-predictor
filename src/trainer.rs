@@ -28,7 +28,7 @@ fn optimise(agents: &mut Vec<Agent>) {
 fn validate(agents: &mut Vec<Agent>, data: &[f64; DATA_SIZE], p: usize) -> InvErrSum {
 	let mut errsum = InvErrSum::new();
 	for agent in agents {
-		ai::test(agent, &mut errsum, &data[p*INPS..(p+2)*INPS]);
+		ai::test(agent, &mut errsum, &data[p*INPS..(p+3)*INPS]);
 	}
 
 	errsum
@@ -40,7 +40,7 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 	for n in 1..=iterations {
 		let mut agent = Agent::from(&agents, errsum.maxerr, errsum.toterr);
 
-		ai::test(&mut agent, &mut errsum, &data[partit*INPS..(partit+2)*INPS]);
+		ai::test(&mut agent, &mut errsum, &data[partit*INPS..(partit+3)*INPS]);
 
 		agents.push(agent);
 
@@ -55,7 +55,7 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 			}
 
 			// Run against validation set (cross-validation)
-			let val_errsum = validate(agents, &data, (partit + 1) % PARTITIONS);
+			let val_errsum = validate(agents, &data, partit + 1);
 
 			// Switch training set if performance was poor
 			if agents[0].maxerr > train_errs[0].0 {
@@ -74,7 +74,7 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 			}
 
 			// Print top agent scores
-			debug::progress(&agents[0], n)
+			debug::progress(&agents[0], n, iterations)
 		}
 
 		if n % 8192 == 0 {println!("")}
