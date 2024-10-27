@@ -80,5 +80,5 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 		if n % 8192 == 0 {println!("")}
 	}
 
-	println!("\n\nn={iterations}")
+	println!("\n\nn={iterations}\n")
 }

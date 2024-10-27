@@ -21,7 +21,7 @@ pub fn result(agent: &mut Agent, data: [f64; DATA_SIZE]) {
 
 	let (brain, maxerr, toterr) = (&agent.brain, agent.maxerr, agent.toterr);
 
-	println!("\nNeural Network: {brain:#?}\n\nmaxerr={maxerr}\ntoterr={toterr}\n");
+	println!("\nNeural Network: {brain:#?}\n\nmaxerr={maxerr}\ntoterr={toterr}");
 }
 
 pub fn progress(agent: &Agent, n: usize, iters: usize) {
