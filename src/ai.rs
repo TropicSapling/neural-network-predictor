@@ -1,14 +1,12 @@
-use crate::{agent::*, input, output, trainer::InvErrSum};
+use crate::{agent::*, input, output};
 
-pub fn test(agent: &mut Agent, errsum: &mut InvErrSum, data: &[f64]) {
+pub fn test(agent: &mut Agent, data: &[f64]) -> f64 {
 	agent.maxerr = 0.0;
-	agent.toterr = 0.0;
 	for i in 0..INPS {
 		run(agent, &data[i..i+INPS], data[i+INPS]);
 	}
 
-	errsum.maxerr += 1.0/agent.maxerr;
-	errsum.toterr += 1.0/agent.toterr;
+	1.0/agent.maxerr
 }
 
 pub fn run(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
@@ -38,10 +36,8 @@ pub fn run(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
 		err1 = (predictions[1] - predictions[0] - aim).abs()
 	}
 
-	agent.brain.discharge();
-
 	agent.runtime = time.elapsed();
-	agent.toterr += err1;
+	agent.brain.discharge();
 
 	// If error was worse for this input, record that
 	if err1 > agent.maxerr {

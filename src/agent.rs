@@ -1,4 +1,5 @@
-use std::{fmt, time::Duration};
+use std::fmt;
+use std::time::Duration;
 
 use crate::helpers::*;
 
@@ -13,7 +14,6 @@ macro_rules! arr {
 pub struct Agent {
 	pub brain  : Brain,
 	pub maxerr : f64,
-	pub toterr : f64,
 
 	pub runtime: Duration
 }
@@ -31,7 +31,7 @@ pub struct Brain {
 	neurons_hid: Vec<Neuron>,
 	neurons_out: [Neuron; OUTS],
 
-	pub gen: usize
+	pub gen: isize
 }
 
 #[derive(Clone)]
@@ -58,7 +58,7 @@ pub struct OutwardConn {
 
 
 impl Agent {
-	pub fn from(agents: &Vec<Agent>, maxsum: f64, totsum: f64) -> Self {
+	pub fn from(agents: &Vec<Agent>, maxsum: f64) -> Self {
 		// Create entirely new agents the first two times
 		if agents.len() < 2 {
 			return Agent::with(Brain::new(1, 0))
@@ -66,7 +66,7 @@ impl Agent {
 
 		// Select parents
 		let parent1 = Agent::select(agents, |parent| parent.maxerr, maxsum);
-		let parent2 = Agent::select(agents, |parent| parent.toterr, totsum);
+		let parent2 = Agent::select(agents, |parent| parent.maxerr, maxsum);
 
 		// Return child of both
 		Agent::merge(parent1, parent2)
@@ -78,7 +78,7 @@ impl Agent {
 	}
 
 	fn with(brain: Brain) -> Self {
-		Agent {brain, maxerr: 0.0, toterr: 0.0, runtime: Duration::new(0, 0)}
+		Agent {brain, maxerr: 0.0, runtime: Duration::new(0, 0)}
 	}
 
 	fn merge(parent1: &Self, parent2: &Self) -> Self {
@@ -239,7 +239,7 @@ impl Brain {
 		}
 	}
 
-	fn new(n: usize, gen: usize) -> Self {
+	fn new(n: usize, gen: isize) -> Self {
 		Brain {
 			neurons_inp: arr![Neuron::new(1+OUTS)   ],
 			neurons_hid: vec![Neuron::new(1+OUTS); n],
