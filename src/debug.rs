@@ -29,6 +29,6 @@ pub fn progress(agent: &Agent, n: usize, iters: usize) {
 	let pb = format!("[{}>{}]", "=".repeat(n/(iters/26)), " ".repeat(26-n/(iters/26)));
 	let st = format!("maxerr={maxerr:.2}, time={t:?}, gen={gen}");
 
-	print!("\r{st:<52} {pb}");
+	print!("\r{st:<36} {pb}");
 	stdout().flush().unwrap();
 }
