@@ -101,6 +101,10 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 			debug::progress(&agents[0], n, iterations)
 		}
 
+		// TODO: Replace pruning with randomly selecting an agent for potential removal
+		// - Chance of removal: `rand_range(0..inverr) == 0` except not quite
+		// - Try save a "maximum" inverr
+
 		if n % 8192 == 0 {println!("")}
 	}
 
