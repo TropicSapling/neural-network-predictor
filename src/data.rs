@@ -1,6 +1,6 @@
 use std::{error::Error, io::stdin};
 
-pub const DATA_SIZE: usize = crate::INPS*(crate::PARTITIONS+5);
+pub const DATA_SIZE: usize = crate::INPS*(crate::PARTITIONS+4);
 
 pub fn read_data() -> Result<[f64; DATA_SIZE], Box<dyn Error>> {
 	let mut inp = [0.0; DATA_SIZE];
