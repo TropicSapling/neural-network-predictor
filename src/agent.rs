@@ -39,6 +39,7 @@ pub struct Neuron {
 	pub excitation    : f64,
 	pub act_threshold : f64,
 
+	pub prev_conn: Vec<usize>,
 	pub next_conn: Vec<OutwardConn>,
 
 	reachable: bool,
@@ -205,6 +206,33 @@ impl Brain {
 		for neuron in &mut self.neurons_hid {
 			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons)
 		}
+		/*let mut i = 0;
+		while i < recv_neurons - OUTS {
+			let neuron = &mut self.neurons_hid[i];
+
+			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons);
+
+			// Remove neuron if it has no outgoing connections
+			if neuron.next_conn.len() < 1 {
+				for prev in &neuron.prev_conn {
+					let conns = match prev {
+						0..INPS => &mut self.neurons_inp[*prev       ].next_conn,
+						_       => &mut self.neurons_hid[*prev - INPS].next_conn,
+					};
+
+					for conn in 0..conns.len() {
+						if conns[conn].dest_index == *prev {
+							conns.swap_remove(conn);
+						}
+					}
+				}
+
+				self.neurons_hid.swap_remove(i);
+				recv_neurons -= 1
+			}
+
+			i += 1
+		}*/
 
 		// Mutate output neurons
 		for neuron in &mut self.neurons_out {
@@ -218,32 +246,42 @@ impl Brain {
 
 		// Add new hidden neurons
 		for _ in 0..new_neurons {
-			self.neurons_hid.push(Neuron::new(recv_neurons));
+			self.neurons_hid.push(Neuron::new());
+			self.connect(self.neurons_hid.len() - 1);
+
 			recv_neurons += 1
 		}
 
 		// Add new outgoing connections
+		let neurons = INPS + self.neurons_hid.len() + OUTS;
 		for _ in 0..new_conns {
-			let hids = self.neurons_hid.len();
-			let rand = rand_range(0..INPS+hids+OUTS);
+			self.connect(rand_range(0..neurons))
+		}
+	}
 
-			let neuron = if rand < INPS {
-				&mut self.neurons_inp[rand]
-			} else if rand < INPS+hids {
-				&mut self.neurons_hid[rand-INPS]
-			} else {
-				&mut self.neurons_out[rand-INPS-hids]
-			};
+	fn connect(&mut self, i: usize) {
+		let conn = OutwardConn::new(self.neurons_hid.len() + OUTS);
 
-			neuron.next_conn.push(OutwardConn::new(recv_neurons))
+		// Connect back to neuron #i
+		match conn.dest_index {
+			0..OUTS => self.neurons_out[conn.dest_index       ].prev_conn.push(i),
+			_       => self.neurons_hid[conn.dest_index - OUTS].prev_conn.push(i)
+		}
+
+		// Connect out from neuron #i
+		let nout = INPS + self.neurons_hid.len();
+		match i {
+			0..INPS       => self.neurons_inp[i       ].next_conn.push(conn),
+			_ if i < nout => self.neurons_hid[i - INPS].next_conn.push(conn),
+			_             => self.neurons_out[i - nout].next_conn.push(conn)
 		}
 	}
 
 	fn new(n: usize, gen: isize) -> Self {
 		Brain {
-			neurons_inp: arr![Neuron::new(1+OUTS)   ],
-			neurons_hid: vec![Neuron::new(1+OUTS); n],
-			neurons_out: arr![Neuron::new(1+OUTS)   ],
+			neurons_inp: arr![Neuron::new()   ],
+			neurons_hid: vec![Neuron::new(); n],
+			neurons_out: arr![Neuron::new()   ],
 			gen
 		}
 	}
@@ -280,12 +318,13 @@ impl Brain {
 }
 
 impl Neuron {
-	fn new(recv_neuron_count: usize) -> Self {
+	fn new() -> Self {
 		Neuron {
 			excitation    : 0.0,
 			act_threshold : 0.0,
 
-			next_conn: vec![OutwardConn::new(recv_neuron_count)],
+			prev_conn: vec![],
+			next_conn: vec![],
 
 			reachable: false,
 			inv_mut: 2
