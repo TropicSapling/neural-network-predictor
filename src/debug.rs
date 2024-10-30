@@ -21,7 +21,7 @@ pub fn result(agent: &mut Agent, data: [f64; DATA_SIZE]) {
 	println!("\nNeural Network: {:#?}\n\nmaxerr={}", agent.brain, agent.maxerr);
 }
 
-pub fn progress(agent: &Agent, n: usize, iters: usize) {
+pub fn progress(agent: &Agent, alive: usize, n: usize, iters: usize) {
 	let maxerr = agent.maxerr;
 	let gen    = agent.brain.gen;
 	let t      = agent.runtime;
@@ -29,6 +29,6 @@ pub fn progress(agent: &Agent, n: usize, iters: usize) {
 	let pb = format!("[{}>{}]", "=".repeat(n/(iters/26)), " ".repeat(26-n/(iters/26)));
 	let st = format!("maxerr={maxerr:.2}, time={t:?}, gen={gen}");
 
-	print!("\r{st:<36} {pb}");
+	print!("\r{st:<36} {pb} (agents: {alive})");
 	stdout().flush().unwrap();
 }

@@ -90,7 +90,7 @@ impl Agent {
 		for _ in 0..7 {
 			for parent in agents {
 				// See error_share_formula.PNG
-				let share = 1.0/err(parent);
+				let share = (1.0/err(parent)).powf(4.0);
 				if rand_range(0.0..1.0) < share/errsum {
 					return parent
 				}

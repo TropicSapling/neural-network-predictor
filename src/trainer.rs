@@ -1,4 +1,4 @@
-use crate::{agent::Agent, ai, debug};
+use crate::{agent::Agent, ai, debug, helpers::rand_range};
 use crate::{INPS, DATA_SIZE, PARTITIONS};
 
 struct Trainer {
@@ -98,12 +98,14 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 			trainer.optimise(agents);
 			trainer.crossval(agents);
 
-			debug::progress(&agents[0], n, iterations)
+			debug::progress(&agents[0], agents.len(), n, iterations)
 		}
 
-		// TODO: Replace pruning with randomly selecting an agent for potential removal
-		// - Chance of removal: `rand_range(0..inverr) == 0` except not quite
-		// - Try save a "maximum" inverr
+		// Randomly select an agent to potentially remove
+		/*let i = rand_range(0..agents.len());
+		if rand_range(0.0..1.0) < (agents[i].maxerr/10_000.0)*(agents.len() as f64) {
+			agents.swap_remove(i);
+		}*/
 
 		if n % 8192 == 0 {println!("")}
 	}

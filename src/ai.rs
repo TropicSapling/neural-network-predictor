@@ -6,7 +6,7 @@ pub fn test(agent: &mut Agent, data: &[f64]) -> f64 {
 		run(agent, &data[i..i+INPS], data[i+INPS]);
 	}
 
-	1.0/agent.maxerr
+	(1.0/agent.maxerr).powf(4.0)
 }
 
 pub fn run(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
