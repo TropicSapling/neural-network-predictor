@@ -22,6 +22,8 @@ pub struct Agent {
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
+// TODO: Consider having HashMaps of Neurons with IDs instead of arrays.
+// - Would likely significantly simplify the code.
 
 /// neurons_inp: 365 numbers (normalise to [-1, 1]? if so how?)
 /// neurons_out: [bp, sp] (normalise to [-1, 1]? if so how?)
@@ -188,68 +190,81 @@ impl Brain {
 	}
 
 	fn mutate(&mut self) {
-		let mut recv_neurons = self.neurons_hid.len() + OUTS;
-		let mut new_neurons  = 0;
-		let mut new_conns    = 0;
+		let mut new_neurons = 0;
+		let mut new_conns   = 0;
 
 		// Mutate input neurons
-		for neuron in &mut self.neurons_inp {
-			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons);
+		let mut i = 0;
+		while i < self.neurons_inp.len() {
+			let neuron = &mut self.neurons_inp[i];
+
+			neuron.mutate(&mut new_neurons, &mut new_conns);
 
 			// Ensure there is always at least one outgoing connection left
 			if neuron.next_conn.len() < 1 {
-				neuron.next_conn.push(OutwardConn::new(recv_neurons))
-			}
-		}
-
-		// Mutate hidden neurons
-		for neuron in &mut self.neurons_hid {
-			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons)
-		}
-		/*let mut i = 0;
-		while i < recv_neurons - OUTS {
-			let neuron = &mut self.neurons_hid[i];
-
-			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons);
-
-			// Remove neuron if it has no outgoing connections
-			if neuron.next_conn.len() < 1 {
-				for prev in &neuron.prev_conn {
-					let conns = match prev {
-						0..INPS => &mut self.neurons_inp[*prev       ].next_conn,
-						_       => &mut self.neurons_hid[*prev - INPS].next_conn,
-					};
-
-					for conn in 0..conns.len() {
-						if conns[conn].dest_index == *prev {
-							conns.swap_remove(conn);
-						}
-					}
-				}
-
-				self.neurons_hid.swap_remove(i);
-				recv_neurons -= 1
+				self.connect(i)
 			}
 
 			i += 1
-		}*/
+		}
+
+		// Mutate hidden neurons
+		let mut i = 0;
+		while i < self.neurons_hid.len() {
+			let neuron = &mut self.neurons_hid[i];
+
+			neuron.mutate(&mut new_neurons, &mut new_conns);
+
+			// Remove neuron if it has no outgoing connections
+			if neuron.next_conn.len() < 1 {
+				for prev in neuron.prev_conn.clone() {
+					let conns = match prev {
+						0..INPS => &mut self.neurons_inp[prev       ].next_conn,
+						_       => &mut self.neurons_hid[prev - INPS].next_conn,
+					};
+
+					conns.retain(|conn| conn.dest_index != OUTS + i)
+				}
+
+				/*self.neurons_hid.swap_remove(i);
+
+				let hids              = self.neurons_hid.len();
+				let swapped_in_neuron = &mut self.neurons_hid[i];
+
+				swapped_in_neuron.prev_conn.retain(|prev| *prev != i);
+				for prev in &mut swapped_in_neuron.prev_conn {
+					if *prev == INPS + hids {
+						*prev = i
+					}
+				}
+
+				for prev in swapped_in_neuron.prev_conn.clone() {
+					let conns = match prev {
+						0..INPS => &mut self.neurons_inp[prev       ].next_conn,
+						_       => &mut self.neurons_hid[prev - INPS].next_conn,
+					};
+
+					conns.retain(|conn| conn.dest_index != OUTS + i)
+				}*/
+			}
+
+			i += 1
+		}
 
 		// Mutate output neurons
 		for neuron in &mut self.neurons_out {
-			neuron.mutate(&mut new_neurons, &mut new_conns, recv_neurons);
+			neuron.mutate(&mut new_neurons, &mut new_conns);
 
 			// Ensure there is always at least one outgoing connection left
 			if neuron.next_conn.len() < 1 {
-				neuron.next_conn.push(OutwardConn::new(recv_neurons))
+				neuron.next_conn.push(OutwardConn::new(self.neurons_hid.len() + OUTS))
 			}
 		}
 
 		// Add new hidden neurons
 		for _ in 0..new_neurons {
 			self.neurons_hid.push(Neuron::new());
-			self.connect(self.neurons_hid.len() - 1);
-
-			recv_neurons += 1
+			self.connect(INPS + self.neurons_hid.len() - 1);
 		}
 
 		// Add new outgoing connections
@@ -261,15 +276,17 @@ impl Brain {
 
 	fn connect(&mut self, i: usize) {
 		let conn = OutwardConn::new(self.neurons_hid.len() + OUTS);
+		let nout = INPS + self.neurons_hid.len();
 
-		// Connect back to neuron #i
-		match conn.dest_index {
-			0..OUTS => self.neurons_out[conn.dest_index       ].prev_conn.push(i),
-			_       => self.neurons_hid[conn.dest_index - OUTS].prev_conn.push(i)
+		if i < nout {
+			// Connect back to neuron #i
+			match conn.dest_index {
+				0..OUTS => self.neurons_out[conn.dest_index       ].prev_conn.push(i),
+				_       => self.neurons_hid[conn.dest_index - OUTS].prev_conn.push(i)
+			}
 		}
 
 		// Connect out from neuron #i
-		let nout = INPS + self.neurons_hid.len();
 		match i {
 			0..INPS       => self.neurons_inp[i       ].next_conn.push(conn),
 			_ if i < nout => self.neurons_hid[i - INPS].next_conn.push(conn),
@@ -338,11 +355,7 @@ impl Neuron {
 	// Always 50/50 if expansion or shrinking
 	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
 
-	fn mutate(&mut self,
-		new_neuron_count  : &mut usize,
-		new_conn_count    : &mut usize,
-		recv_neuron_count :      usize
-	) {
+	fn mutate(&mut self, new_neuron_count: &mut usize, new_conn_count: &mut usize) {
 		// Mutate neuron properties
 		if Neuron::should_mutate_mut(self.inv_mut) {
 			self.inv_mut.add_bounded([-1, 1][rand_range(0..=1)])}
@@ -373,12 +386,6 @@ impl Neuron {
 
 		// Remove effectively dead connections
 		self.next_conn.retain(|conn| conn.weight != 0.0);
-
-		// If this neuron is inactive, try recycling it
-		if self.next_conn.len() < 1 && *new_neuron_count > 0 {
-			*new_neuron_count -= 1;
-			self.next_conn.push(OutwardConn::new(recv_neuron_count))
-		}
 
 		// Reset excitation
 		self.excitation = 0.0;
