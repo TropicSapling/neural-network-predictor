@@ -1,8 +1,9 @@
+use indexmap::map::Slice;
 use crate::agent::*;
 
-pub fn assign(predictions: &mut [f64; OUTS], output: &mut [Neuron; OUTS]) {
-	for (n, out) in output.iter_mut().enumerate() {
-		predictions[n] = 0.0;
+pub fn assign(predictions: &mut [f64; OUTS], output: &mut Slice<usize, Neuron>) {
+	for (id, out) in output {
+		predictions[id - INPS] = 0.0;
 
 		let excitation = out.excitation;
 		// Reset excitation
@@ -13,13 +14,13 @@ pub fn assign(predictions: &mut [f64; OUTS], output: &mut [Neuron; OUTS]) {
 			// ... activate the connections
 			for conn in &out.next_conn {
 				if conn.relu {
-					predictions[n] += conn.weight * excitation
+					predictions[id - INPS] += conn.weight * excitation
 				} else {
-					predictions[n] += conn.weight
+					predictions[id - INPS] += conn.weight
 				}
 			}
 		}
 
-		predictions[n] /= crate::RESOLUTION // downscale by `RESOLUTION`
+		predictions[id - INPS] /= crate::RESOLUTION // downscale by `RESOLUTION`
 	}
 }
