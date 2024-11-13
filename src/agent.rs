@@ -8,7 +8,7 @@ use crate::helpers::*;
 pub const INPS: usize = 32;
 pub const OUTS: usize = 2;
 
-const INV_MUT: usize = 2;
+const INV_MUT: usize = 0;
 
 #[derive(Debug)]
 pub struct Agent {
@@ -34,8 +34,8 @@ pub struct Brain {
 
 #[derive(Clone)]
 pub struct Neuron {
-	pub excitation    : f64,
-	pub act_threshold : f64,
+	pub excitation    : f64, // TODO: change to isize?
+	pub act_threshold : f64, // TODO: change to isize?
 
 	pub prev_conn: Vec<usize>,
 	pub next_conn: Vec<OutwardConn>,
@@ -124,15 +124,15 @@ impl Brain {
 	}
 
 	pub fn update_neurons(&mut self) -> &mut Slice<usize, Neuron> {
-		for id in self.neurons.keys() {
-			self.update_neuron(id)
+		for i in 0..self.neurons.len() {
+			self.update_neuron(i)
 		}
 
 		self.neurons.get_range_mut(INPS..INPS+OUTS).unwrap()
 	}
 
-	fn update_neuron(&mut self, id: &usize) {
-		let neuron = self.neurons.get_mut(id).unwrap();
+	fn update_neuron(&mut self, i: usize) {
+		let neuron = self.neurons.get_index_mut(i).unwrap().1;
 
 		let excitation = neuron.excitation;
 		// Reset excitation
@@ -148,31 +148,20 @@ impl Brain {
 
 			// ... activate the connections
 			for conn in &mut activations {
-				let recv_neuron = self.neurons.get_mut(&conn.dst_id).unwrap();
-
-				//let prev_recv_excitation = recv_neuron.excitation;
-
-				if conn.relu {
-					recv_neuron.excitation += conn.weight * excitation
+				if let Some(recv_neuron) = self.neurons.get_mut(&conn.dst_id) {
+					if conn.relu {
+						recv_neuron.excitation += conn.weight * excitation
+					} else {
+						recv_neuron.excitation += conn.weight
+					}
 				} else {
-					recv_neuron.excitation += conn.weight
-
-					// STDP (Spike-Timing-Dependent Plasticity)
-					// TODO: maybe make more realistic?
-					// NOTE: Having this on => network changes on every run!
-					/*if prev_recv_excitation >= recv_neuron.act_threshold {
-						// Receiver already has fired => weaken connection
-						Neuron::expand_or_shrink(&mut conn.weight, -1.0)
-					} else if recv_neuron.excitation >= recv_neuron.act_threshold {
-						// Receiver firing thanks to this => strengthen connection
-						Neuron::expand_or_shrink(&mut conn.weight, 1.0)
-					}*/
+					conn.weight = 0.0 // disable connection if broken
 				}
 			}
 
-			let neuron = self.neurons.get_mut(id).unwrap();
+			let neuron = self.neurons.get_index_mut(i).unwrap().1;
 
-			// ... and finally apply potential STDP changes
+			// ... and finally apply potential changes
 			neuron.next_conn = activations
 		}
 	}
@@ -196,6 +185,9 @@ impl Brain {
 		for _ in 0..new_conns {
 			self.connect(self.rand_id())
 		}
+
+		// Retain only I/O neurons and active hidden neurons
+		self.neurons.retain(|id, neuron| *id<INPS+OUTS || neuron.next_conn.len() > 0)
 	}
 
 	fn connect(&mut self, id: usize) {
@@ -209,7 +201,11 @@ impl Brain {
 	}
 
 	fn new(n: usize, gen: isize) -> Self {
-		let mut neurons = IndexMap::new();
+		let mut brain = Brain {
+			neurons: IndexMap::new(),
+			next_id: n,
+			gen
+		};
 
 		for id in 0..n {
 			let typ = match id {
@@ -218,10 +214,11 @@ impl Brain {
 				_                   => NeuronType::HID
 			};
 
-			neurons.insert(id, Neuron::new(typ));
+			brain.neurons.insert(id, Neuron::new(typ));
+			brain.connect(id)
 		}
 
-		Brain {neurons, next_id: n, gen}
+		brain
 	}
 
 	fn merge(brain1: &Self, brain2: &Self) -> Self {
@@ -341,10 +338,9 @@ impl fmt::Debug for Brain {
 
 		let mut inactives = 0;
 
-		s += "\t],\n\n\tneurons: [\n";
-		//for (i, neuron) in self.neurons.iter().enumerate() {
-		for neuron in self.neurons.values() {
-			//s += &format!("\t\t#{}: {neuron:#?},\n", i + OUTS)
+		s += "\tneurons: [\n";
+		for (_, neuron) in &self.neurons {
+			//s += &format!("\t\t#{id}: {neuron:#?},\n");
 			if neuron.next_conn.len() < 1 {
 				inactives += 1
 			}

@@ -103,7 +103,7 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 
 		// Randomly select an agent to potentially remove
 		/*let i = rand_range(0..agents.len());
-		if rand_range(0.0..1.0) < (agents[i].maxerr/10_000.0)*(agents.len() as f64) {
+		if rand_range(0.0..1.0) < (agents[i].maxerr/512.0)*(agents.len() as f64) {
 			agents.swap_remove(i);
 		}*/
 
