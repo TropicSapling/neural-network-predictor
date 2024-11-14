@@ -85,6 +85,7 @@ impl Trainer {
 pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize) {
 	let mut trainer = Trainer::from(data);
 
+	//let mut maxerr = f64::MAX;
 	for n in 1..=iterations {
 		let mut agent = Agent::from(&agents, trainer.maxsum);
 
@@ -101,10 +102,16 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 			debug::progress(&agents[0], agents.len(), n, iterations)
 		}
 
-		// Randomly select an agent to potentially remove
-		/*let i = rand_range(0..agents.len());
-		if rand_range(0.0..1.0) < (agents[i].maxerr/512.0)*(agents.len() as f64) {
-			agents.swap_remove(i);
+		/*if maxerr == f64::MAX {
+			maxerr = agents.last().unwrap().maxerr
+		}
+
+		for _ in 0..agents.len()/128 {
+			// Randomly select an agent to potentially remove
+			let i = rand_range(0..agents.len());
+			if rand_range(0.0..1.0) < agents[i].maxerr/maxerr && agents.len() > 128 {
+				agents.swap_remove(i);
+			}
 		}*/
 
 		if n % 8192 == 0 {println!("")}

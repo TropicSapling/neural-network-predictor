@@ -8,7 +8,7 @@ use crate::helpers::*;
 pub const INPS: usize = 32;
 pub const OUTS: usize = 2;
 
-const INV_MUT: usize = 0;
+const INV_MUT: usize = 1;
 
 #[derive(Debug)]
 pub struct Agent {
@@ -132,8 +132,9 @@ impl Brain {
 	}
 
 	fn update_neuron(&mut self, i: usize) {
-		let neuron = self.neurons.get_index_mut(i).unwrap().1;
+		let neuron = &mut self.neurons[i];
 
+		// Save excitation before reset
 		let excitation = neuron.excitation;
 		// Reset excitation
 		neuron.excitation = 0.0;
@@ -159,10 +160,8 @@ impl Brain {
 				}
 			}
 
-			let neuron = self.neurons.get_index_mut(i).unwrap().1;
-
 			// ... and finally apply potential changes
-			neuron.next_conn = activations
+			self.neurons[i].next_conn = activations
 		}
 	}
 
@@ -259,7 +258,7 @@ impl Neuron {
 		}
 	}
 
-	// By default 33/67 if mutation or not
+	// By default 50/50 if mutation or not
 	fn should_mutate_now() -> bool {rand_range(0..=INV_MUT) == 0}
 	// Always 50/50 if expansion or shrinking
 	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
@@ -339,7 +338,7 @@ impl fmt::Debug for Brain {
 		let mut inactives = 0;
 
 		s += "\tneurons: [\n";
-		for (_, neuron) in &self.neurons {
+		for (_id, neuron) in &self.neurons {
 			//s += &format!("\t\t#{id}: {neuron:#?},\n");
 			if neuron.next_conn.len() < 1 {
 				inactives += 1
