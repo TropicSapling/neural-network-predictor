@@ -12,8 +12,8 @@ use std::error::Error;
 use agent::*;
 use data::*;
 
-// All I/O is upscaled/downscaled by 128x
-const RESOLUTION: f64 = 128.0;
+// All I/O is upscaled/downscaled by 1024x
+const RESOLUTION: f64 = 1024.0;
 // Partitions for cross-validation
 const PARTITIONS: usize = 2;
 
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 	let input_data = read_data()?;
 	
 	// Train agents on the input data
-	trainer::train(&mut agents, input_data, 26624);
+	trainer::train(&mut agents, input_data, 53248);
 
 	// Print final top agent
 	debug::result(&mut agents[0], input_data);

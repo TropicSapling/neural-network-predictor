@@ -113,6 +113,11 @@ impl Agent {
 
 
 impl Brain {
+	// By default 50/50 if mutation or not
+	fn should_mutate_now() -> bool {rand_range(0..=INV_MUT) == 0}
+	// Always 50/50 if expansion or shrinking
+	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
+
 	pub fn input(&mut self) -> &mut Slice<usize, Neuron> {
 		self.neurons.get_range_mut(0..INPS).unwrap()
 	}
@@ -166,23 +171,31 @@ impl Brain {
 	}
 
 	fn mutate(&mut self) {
-		let mut new_neurons = 0;
-		let mut new_conns   = 0;
-
 		// Mutate neurons
-		for neuron in self.neurons.values_mut() {
-			neuron.mutate(&mut new_neurons, &mut new_conns)
+		for i in 0..self.neurons.len() {
+			if self.neurons[i].mutate() {
+				self.connect(*self.neurons.get_index(i).unwrap().0)
+			}
 		}
 
-		// Add new hidden neurons
-		for _ in 0..new_neurons {
-			self.neurons.insert(self.next_id, Neuron::new(NeuronType::HID));
-			self.connect(self.next_id)
-		}
+		if Brain::should_mutate_now() {
+			if Brain::should_expand_now() {
+				// Sometimes create new hidden neuron
+				self.neurons.insert(self.next_id, Neuron::new(NeuronType::HID));
+				self.connect(self.next_id);
+				self.next_id += 1
+			} else {
+				// Sometimes weaken a random connection
 
-		// Add new outgoing connections
-		for _ in 0..new_conns {
-			self.connect(self.rand_id())
+				let mut rand = rand_range(0..self.neurons.len());
+				while self.neurons[rand].next_conn.len() < 1 {
+					rand = rand_range(0..self.neurons.len())
+				}
+
+				let rand_weight = &mut self.neurons[rand].next_conn.rand().weight;
+
+				Neuron::expand_or_shrink(rand_weight, -1.0)
+			}
 		}
 
 		// Retain only I/O neurons and active hidden neurons
@@ -263,15 +276,23 @@ impl Neuron {
 	// Always 50/50 if expansion or shrinking
 	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
 
-	fn mutate(&mut self, new_neuron_count: &mut usize, new_conn_count: &mut usize) {
-		// TODO: Mutate "properly". Meaning in a truly balanced way.
-		// - Add/Del neuron: 50/50 once per brain
-		// - Add/Del connection: 50/50 once per neuron
-		// - Add/Sub weight: 50/50 once per connection
+	fn mutate(&mut self) -> bool {
+		let mut add_conn = false;
 
 		// Mutate activation threshold
 		if Neuron::should_mutate_now() {
 			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]
+		}
+
+		// Mutate connection count
+		if Neuron::should_mutate_now() {
+			if Neuron::should_expand_now() {
+				// Sometimes create a new connection
+				add_conn = true
+			} else if self.next_conn.len() > 0 {
+				// Sometimes weaken an existing connection
+				Neuron::expand_or_shrink(&mut self.next_conn.rand().weight, -1.0)
+			}
 		}
 
 		// Mutate outgoing connections
@@ -282,12 +303,8 @@ impl Neuron {
 					conn.weight = -conn.weight
 				} else {
 					if Neuron::should_expand_now() {
-						// Sometimes expand weight or other stuff
-						match rand_range(0..3) {
-							0 => Neuron::expand_or_shrink(&mut conn.weight, 1.0),
-							1 => *new_conn_count   += 1,
-							_ => *new_neuron_count += 1
-						}
+						// Sometimes expand weight
+						Neuron::expand_or_shrink(&mut conn.weight, 1.0)
 					} else {
 						// Sometimes shrink weight (which can effectively remove)
 						Neuron::expand_or_shrink(&mut conn.weight, -1.0)
@@ -300,7 +317,9 @@ impl Neuron {
 		self.next_conn.retain(|conn| conn.weight != 0.0);
 
 		// Reset excitation
-		self.excitation = 0.0
+		self.excitation = 0.0;
+
+		add_conn
 	}
 
 	fn merge(&mut self, neuron1: &Neuron, neuron2: &Neuron) {
