@@ -264,6 +264,11 @@ impl Neuron {
 	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
 
 	fn mutate(&mut self, new_neuron_count: &mut usize, new_conn_count: &mut usize) {
+		// TODO: Mutate "properly". Meaning in a truly balanced way.
+		// - Add/Del neuron: 50/50 once per brain
+		// - Add/Del connection: 50/50 once per neuron
+		// - Add/Sub weight: 50/50 once per connection
+
 		// Mutate activation threshold
 		if Neuron::should_mutate_now() {
 			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]
