@@ -1,5 +1,18 @@
 use crate::{agent::*, input, output};
 
+pub fn train(agent: &mut Agent, data: &[f64]) -> f64 {
+	agent.maxerr = 0.0;
+	for i in 0..INPS {
+		let inp = &data[i..i+INPS];
+		let tgt = &data[i+INPS..i+INPS+2];
+		let res = run(agent, inp, tgt);
+
+		agent.brain.backprop(res, tgt)
+	}
+
+	(1.0/agent.maxerr).powf(4.0)
+}
+
 pub fn test(agent: &mut Agent, data: &[f64]) -> f64 {
 	agent.maxerr = 0.0;
 	for i in 0..INPS {
@@ -12,7 +25,6 @@ pub fn test(agent: &mut Agent, data: &[f64]) -> f64 {
 pub fn run(agent: &mut Agent, inp: &[f64], aim: &[f64]) -> [f64; OUTS] {
 	// TODO: If get poor results, try pseudo-normalize i/o using log(...)
 	// - Could potentially have "log" variant for each neuron
-	// - ALSO: maybe try backpropagation?
 	let mut predictions = [0.0; OUTS];
 
 	let mut err0 = 1.0;

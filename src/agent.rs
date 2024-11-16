@@ -47,6 +47,7 @@ pub struct Neuron {
 pub struct OutwardConn {
 	pub dst_id: usize,
 	pub weight: f64,
+	pub charge: f64,
 
 	pub relu: bool
 }
@@ -138,7 +139,7 @@ impl Brain {
 
 	pub fn backprop(&mut self, outputs: [f64; OUTS], targets: &[f64]) {
 		for i in INPS..INPS+OUTS {
-			self.rewind_neuron(i, outputs[i], outputs[i] - targets[i])
+			self.rewind_neuron(i, outputs[i-INPS] - targets[i-INPS])
 		}
 	}
 
@@ -161,11 +162,12 @@ impl Brain {
 			// ... activate the connections
 			for conn in &mut activations {
 				if let Some(recv_neuron) = self.neurons.get_mut(&conn.dst_id) {
-					if conn.relu {
-						recv_neuron.excitation += conn.weight * excitation
-					} else {
-						recv_neuron.excitation += conn.weight
-					}
+					conn.charge = match conn.relu {
+						true => conn.weight * excitation,
+						_    => conn.weight
+					};
+
+					recv_neuron.excitation += conn.charge
 				} else {
 					conn.weight = 0.0 // disable connection if broken
 				}
@@ -176,9 +178,25 @@ impl Brain {
 		}
 	}
 
-	fn rewind_neuron(&mut self, i: usize, excitation: f64, err: f64) {
-		for conn in &self.neurons[i].prev_conn {
-			todo!()
+	fn rewind_neuron(&mut self, i: usize, err: f64) {
+		let id = *self.neurons.get_index(i).unwrap().0;
+
+		for prev in &self.neurons[i].prev_conn.clone() {
+			if let Some(neuron) = self.neurons.get_mut(prev) {
+				for conn in &mut neuron.next_conn {
+					if conn.dst_id == id {
+						let sign = match conn.weight {
+							..0.0 => -conn.charge.signum(),
+							_     =>  conn.charge.signum()
+						};
+
+						/*match conn.relu {
+							true => conn.weight -= err.signum()*sign,
+							_    => conn.weight -= err.signum()
+						}*/
+					}
+				}
+			}
 		}
 	}
 
@@ -362,6 +380,8 @@ impl OutwardConn {
 		OutwardConn {
 			dst_id,
 			weight: [-1.0, 1.0][rand_range(0..=1)],
+			charge: 0.0,
+
 			relu: [false, true][rand_range(0..=1)]
 		}
 	}

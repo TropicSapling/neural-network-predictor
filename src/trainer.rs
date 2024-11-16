@@ -90,7 +90,7 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 		let mut agent = Agent::from(&agents, trainer.maxsum);
 
 		// Train the agent...
-		trainer.maxsum += ai::test(&mut agent, trainer.data());
+		trainer.maxsum += ai::train(&mut agent, trainer.data());
 		// ... and save it
 		agents.push(agent);
 
