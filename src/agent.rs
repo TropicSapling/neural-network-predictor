@@ -136,6 +136,12 @@ impl Brain {
 		self.neurons.get_range_mut(INPS..INPS+OUTS).unwrap()
 	}
 
+	pub fn backprop(&mut self, outputs: [f64; OUTS], targets: &[f64]) {
+		for i in INPS..INPS+OUTS {
+			self.rewind_neuron(i, outputs[i], outputs[i] - targets[i])
+		}
+	}
+
 	fn update_neuron(&mut self, i: usize) {
 		let neuron = &mut self.neurons[i];
 
@@ -167,6 +173,12 @@ impl Brain {
 
 			// ... and finally apply potential changes
 			self.neurons[i].next_conn = activations
+		}
+	}
+
+	fn rewind_neuron(&mut self, i: usize, excitation: f64, err: f64) {
+		for conn in &self.neurons[i].prev_conn {
+			todo!()
 		}
 	}
 

@@ -3,13 +3,13 @@ use crate::{agent::*, input, output};
 pub fn test(agent: &mut Agent, data: &[f64]) -> f64 {
 	agent.maxerr = 0.0;
 	for i in 0..INPS {
-		run(agent, &data[i..i+INPS], data[i+INPS]);
+		run(agent, &data[i..i+INPS], &data[i+INPS..i+INPS+2]);
 	}
 
 	(1.0/agent.maxerr).powf(4.0)
 }
 
-pub fn run(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
+pub fn run(agent: &mut Agent, inp: &[f64], aim: &[f64]) -> [f64; OUTS] {
 	// TODO: If get poor results, try pseudo-normalize i/o using log(...)
 	// - Could potentially have "log" variant for each neuron
 	// - ALSO: maybe try backpropagation?
@@ -33,7 +33,7 @@ pub fn run(agent: &mut Agent, inp: &[f64], aim: f64) -> [f64; OUTS] {
 
 		// Calculate absolute error
 		err0 = err1;
-		err1 = (predictions[1] - predictions[0] - aim).abs()
+		err1 = (predictions[0] - aim[0]).abs().max((predictions[1] - aim[1]).abs())
 	}
 
 	agent.runtime = time.elapsed();

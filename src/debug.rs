@@ -3,19 +3,18 @@ use crate::{agent::Agent, ai, DATA_SIZE, INPS};
 
 pub fn result(agent: &mut Agent, data: [f64; DATA_SIZE]) {
 	agent.maxerr = 0.0;
-	for i in 0..(DATA_SIZE - INPS) {
+	for i in 0..(DATA_SIZE - INPS - 1) {
 		if i == DATA_SIZE - INPS*2 {
 			println!("\n    ======================================================\n")
 		}
 
 		let inp = format!("#{i:<3} - {:<6.2} .. {:<6.2}", data[i], data[i+INPS-1]);
-		let tgt = data[i+INPS];
+		let tgt = &data[i+INPS..i+INPS+2];
 		let out = ai::run(agent, &data[i..i+INPS], tgt);
 
-		let res = out[1] - out[0];
-		let err = (res - tgt).abs();
+		let err = (out[0] - tgt[0]).abs().max((out[1] - tgt[1]).abs());
 
-		println!("{inp} => {out:>6.2?} => {res:<6.2} (err={err:<4.2}) <= {tgt:.2}")
+		println!("{inp} => {out:>6.2?} => maxerr={err:<4.2} <= {tgt:.2?}")
 	}
 
 	println!("\nNeural Network: {:#?}\n\nmaxerr={}", agent.brain, agent.maxerr);
