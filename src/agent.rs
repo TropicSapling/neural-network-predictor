@@ -126,6 +126,8 @@ impl Brain {
 
 	pub fn update_neurons(&mut self) -> &mut Slice<usize, Neuron> {
 		for i in 0..self.neurons.len() {
+			if i >= INPS && i < INPS+OUTS {continue}
+
 			self.update_neuron(i)
 		}
 
