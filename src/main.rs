@@ -13,7 +13,7 @@ use agent::*;
 use data::*;
 
 // All I/O is upscaled/downscaled by 1024x
-const RESOLUTION: f64 = 1024.0;
+const RESOLUTION: f64 = 64.0;
 // Partitions for cross-validation
 const PARTITIONS: usize = 2;
 

@@ -1,11 +1,11 @@
-use crate::{agent::Agent, ai, debug, helpers::rand_range};
-use crate::{INPS, DATA_SIZE, PARTITIONS};
+use crate::{ai, ai::Error, debug, helpers::rand_range};
+use crate::{Agent, INPS, DATA_SIZE, PARTITIONS};
 
 struct Trainer {
 	data: [f64; DATA_SIZE],
 
 	partit: usize,
-	maxsum: f64
+	errsum: Error
 }
 
 
@@ -19,8 +19,12 @@ impl Trainer {
 			data,
 
 			partit: 0,
-			maxsum: 0.0
+			errsum: Error::new()
 		}
+	}
+
+	fn rank(agent: &Agent) -> (f64, f64, isize, std::time::Duration) {
+		(agent.error.max, agent.error.tot, -agent.brain.gen, agent.runtime)
 	}
 
 	fn data(&self) -> &[f64] {
@@ -28,9 +32,7 @@ impl Trainer {
 	}
 
 	fn sort(agents: &mut Vec<Agent>) {
-		let rank = |agent: &Agent| (agent.maxerr, -agent.brain.gen, agent.runtime);
-
-		agents.sort_by(|a, b| rank(a).partial_cmp(&rank(b)).unwrap())
+		agents.sort_by(|a, b| Self::rank(a).partial_cmp(&Self::rank(b)).unwrap())
 	}
 
 	fn optimise(&self, agents: &mut Vec<Agent>) {
@@ -38,40 +40,44 @@ impl Trainer {
 		agents.truncate(128);
 	}
 
-	fn validate(&mut self, agents: &mut Vec<Agent>) -> f64 {
-		let mut maxsum = 0.0;
+	fn validate(&mut self, agents: &mut Vec<Agent>) -> Error {
+		let mut errsum = Error::new();
 
 		self.partit += 1;
 		for agent in agents {
-			maxsum += ai::test(agent, self.data())
+			errsum += ai::test(agent, self.data())
 		}
 		self.partit -= 1;
 
-		maxsum
+		errsum
 	}
 
 	fn crossval(&mut self, agents: &mut Vec<Agent>) {
 		// Backup training errors
 		let mut train_errs = vec![];
-		for agent in &mut *agents {
-			train_errs.push(agent.maxerr)
+		for agent in &*agents {
+			train_errs.push(agent.error.clone())
 		}
 
 		// Run against validation set (cross-validation)
-		let val_maxsum = self.validate(agents);
+		let val_errsum = self.validate(agents);
 
-		if agents[0].maxerr > train_errs[0] {
+		if agents[0].error.max > train_errs[0].max {
 			// Switch training set if performance was poor
 			self.partit = (self.partit + 1) % PARTITIONS;
-			self.maxsum = val_maxsum;
+			self.errsum = val_errsum;
 
 			Self::sort(agents)
 		} else {
 			// Otherwise restore training errors
-			self.maxsum = 0.0;
+			self.errsum = Error::new();
 			for (i, agent) in agents.iter_mut().enumerate() {
-				agent.maxerr = train_errs[i];
-				self.maxsum += 1.0/agent.maxerr;
+				agent.error = train_errs[i].clone();
+
+				self.errsum += Error {
+					max: 1.0/agent.error.max,
+					tot: 1.0/agent.error.tot
+				}
 			}
 		}
 	}
@@ -87,10 +93,10 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 
 	//let mut maxerr = f64::MAX;
 	for n in 1..=iterations {
-		let mut agent = Agent::from(&agents, trainer.maxsum);
+		let mut agent = Agent::from(&agents, &trainer.errsum);
 
 		// Train the agent...
-		trainer.maxsum += ai::train(&mut agent, trainer.data());
+		trainer.errsum += ai::train(&mut agent, trainer.data());
 		// ... and save it
 		agents.push(agent);
 

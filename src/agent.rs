@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use indexmap::{IndexMap, map::Slice};
 
-use crate::helpers::*;
+use crate::{ai::Error, helpers::*};
 
 pub const INPS: usize = 32;
 pub const OUTS: usize = 2;
@@ -12,8 +12,8 @@ const INV_MUT: usize = 1;
 
 #[derive(Debug)]
 pub struct Agent {
-	pub brain  : Brain,
-	pub maxerr : f64,
+	pub brain: Brain,
+	pub error: Error,
 
 	pub runtime: Duration
 }
@@ -65,15 +65,15 @@ enum NeuronType {
 
 
 impl Agent {
-	pub fn from(agents: &Vec<Agent>, maxsum: f64) -> Self {
+	pub fn from(agents: &Vec<Agent>, errsum: &Error) -> Self {
 		// Create entirely new agents the first two times
 		if agents.len() < 2 {
 			return Agent::with(Brain::new(INPS+OUTS, 0))
 		}
 
 		// Select parents
-		let parent1 = Agent::select(agents, |parent| parent.maxerr, maxsum);
-		let parent2 = Agent::select(agents, |parent| parent.maxerr, maxsum);
+		let parent1 = Agent::select(agents, |parent| parent.error.max, errsum.max);
+		let parent2 = Agent::select(agents, |parent| parent.error.tot, errsum.tot);
 
 		// Return child of both
 		Agent::merge(parent1, parent2)
@@ -85,7 +85,7 @@ impl Agent {
 	}
 
 	fn with(brain: Brain) -> Self {
-		Agent {brain, maxerr: 0.0, runtime: Duration::new(0, 0)}
+		Agent {brain, error: Error::new(), runtime: Duration::new(0, 0)}
 	}
 
 	fn merge(parent1: &Self, parent2: &Self) -> Self {
