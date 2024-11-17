@@ -8,8 +8,6 @@ use crate::{ai::Error, helpers::*};
 pub const INPS: usize = 32;
 pub const OUTS: usize = 2;
 
-const INV_MUT: isize = 1;
-
 #[derive(Debug)]
 pub struct Agent {
 	pub brain: Brain,
@@ -211,6 +209,7 @@ impl Brain {
 			}
 		}
 
+		// Mutate neuron count
 		if Evolution::should_mutate_now(self.gen) {
 			if Evolution::should_expand_now() {
 				// Sometimes create new hidden neuron
@@ -386,9 +385,9 @@ impl OutwardConn {
 }
 
 impl Evolution {
-	// By default 50/50 if mutation or not
+	// Mutation rate decreases per generation
 	fn should_mutate_now(gen: isize) -> bool {
-		rand_range(0..=INV_MUT*gen/8) == 0
+		rand_range(0..=(gen/16).max(15)) == 0
 	}
 
 	// Always 50/50 if expansion or shrinking
