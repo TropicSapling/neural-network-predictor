@@ -8,7 +8,7 @@ use crate::{ai::Error, helpers::*};
 pub const INPS: usize = 32;
 pub const OUTS: usize = 2;
 
-const INV_MUT: usize = 1;
+const INV_MUT: isize = 1;
 
 #[derive(Debug)]
 pub struct Agent {
@@ -58,6 +58,8 @@ enum NeuronType {
 	HID,
 	OUT
 }
+
+enum Evolution {}
 
 
 ////////////////////////////////////////////////////////////////
@@ -114,11 +116,6 @@ impl Agent {
 
 
 impl Brain {
-	// By default 50/50 if mutation or not
-	fn should_mutate_now() -> bool {rand_range(0..=INV_MUT) == 0}
-	// Always 50/50 if expansion or shrinking
-	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
-
 	pub fn input(&mut self) -> &mut Slice<usize, Neuron> {
 		self.neurons.get_range_mut(0..INPS).unwrap()
 	}
@@ -181,8 +178,10 @@ impl Brain {
 	fn rewind_neuron(&mut self, i: usize, err: f64) {
 		let id = *self.neurons.get_index(i).unwrap().0;
 
-		for prev in &self.neurons[i].prev_conn.clone() {
-			if let Some(neuron) = self.neurons.get_mut(prev) {
+		let mut j = 0;
+		while j < self.neurons[i].prev_conn.len() {
+			let prev = self.neurons[i].prev_conn[j];
+			if let Some(neuron) = self.neurons.get_mut(&prev) {
 				for conn in &mut neuron.next_conn {
 					if conn.dst_id == id {
 						let sign = match conn.weight {
@@ -196,6 +195,10 @@ impl Brain {
 						}*/
 					}
 				}
+
+				j += 1
+			} else {
+				self.neurons[i].prev_conn.swap_remove(j);
 			}
 		}
 	}
@@ -203,13 +206,13 @@ impl Brain {
 	fn mutate(&mut self) {
 		// Mutate neurons
 		for i in 0..self.neurons.len() {
-			if self.neurons[i].mutate() {
+			if self.neurons[i].mutate(self.gen) {
 				self.connect(*self.neurons.get_index(i).unwrap().0)
 			}
 		}
 
-		if Brain::should_mutate_now() {
-			if Brain::should_expand_now() {
+		if Evolution::should_mutate_now(self.gen) {
+			if Evolution::should_expand_now() {
 				// Sometimes create new hidden neuron
 				self.neurons.insert(self.next_id, Neuron::new(NeuronType::HID));
 				self.connect(self.next_id);
@@ -301,43 +304,38 @@ impl Neuron {
 		}
 	}
 
-	// By default 50/50 if mutation or not
-	fn should_mutate_now() -> bool {rand_range(0..=INV_MUT) == 0}
-	// Always 50/50 if expansion or shrinking
-	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
-
-	fn mutate(&mut self) -> bool {
+	fn mutate(&mut self, gen: isize) -> bool {
 		let mut add_conn = false;
 
 		// Mutate activation threshold
-		if Neuron::should_mutate_now() {
+		if Evolution::should_mutate_now(gen) {
 			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]
 		}
 
 		// Mutate connection count
-		if Neuron::should_mutate_now() {
-			if Neuron::should_expand_now() {
+		if Evolution::should_mutate_now(gen) {
+			if Evolution::should_expand_now() {
 				// Sometimes create a new connection
 				add_conn = true
 			} else if self.next_conn.len() > 0 {
 				// Sometimes weaken an existing connection
-				Neuron::expand_or_shrink(&mut self.next_conn.rand().weight, -1.0)
+				Self::expand_or_shrink(&mut self.next_conn.rand().weight, -1.0)
 			}
 		}
 
 		// Mutate outgoing connections
 		for conn in &mut self.next_conn {
-			if Neuron::should_mutate_now() {
+			if Evolution::should_mutate_now(gen) {
 				if rand_range(0..(2 + conn.weight.abs() as usize)) == 0 {
 					// Sometimes flip weight
 					conn.weight = -conn.weight
 				} else {
-					if Neuron::should_expand_now() {
+					if Evolution::should_expand_now() {
 						// Sometimes expand weight
-						Neuron::expand_or_shrink(&mut conn.weight, 1.0)
+						Self::expand_or_shrink(&mut conn.weight, 1.0)
 					} else {
 						// Sometimes shrink weight (which can effectively remove)
-						Neuron::expand_or_shrink(&mut conn.weight, -1.0)
+						Self::expand_or_shrink(&mut conn.weight, -1.0)
 					}
 				}
 			}
@@ -385,6 +383,16 @@ impl OutwardConn {
 			relu: [false, true][rand_range(0..=1)]
 		}
 	}
+}
+
+impl Evolution {
+	// By default 50/50 if mutation or not
+	fn should_mutate_now(gen: isize) -> bool {
+		rand_range(0..=INV_MUT*gen/8) == 0
+	}
+
+	// Always 50/50 if expansion or shrinking
+	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
 }
 
 impl fmt::Debug for Brain {
