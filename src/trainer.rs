@@ -96,7 +96,12 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 		let mut agent = Agent::from(&agents, &trainer.errsum);
 
 		// Train the agent...
-		trainer.errsum += ai::train(&mut agent, trainer.data());
+		let err = ai::train(&mut agent, trainer.data());
+		if agent.runtime.as_micros() > 15 {
+			continue // discard slow agents
+		}
+		// ... add its error
+		trainer.errsum += err;
 		// ... and save it
 		agents.push(agent);
 

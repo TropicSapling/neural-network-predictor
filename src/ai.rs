@@ -34,8 +34,8 @@ pub fn train(agent: &mut Agent, data: &[f64]) -> Error {
 	}
 
 	Error {
-		max: (1.0/agent.error.max).powf(4.0),
-		tot: (1.0/agent.error.tot).powf(4.0)
+		max: 1.0/agent.error.max,
+		tot: 1.0/agent.error.tot
 	}
 }
 
@@ -46,8 +46,8 @@ pub fn test(agent: &mut Agent, data: &[f64]) -> Error {
 	}
 
 	Error {
-		max: (1.0/agent.error.max).powf(4.0),
-		tot: (1.0/agent.error.tot).powf(4.0)
+		max: 1.0/agent.error.max,
+		tot: 1.0/agent.error.tot
 	}
 }
 
@@ -76,7 +76,7 @@ pub fn run(agent: &mut Agent, inp: &[f64], aim: &[f64]) -> [f64; OUTS] {
 
 		// Calculate absolute error
 		err0 = err1;
-		err1 = (predictions[0] - aim[0]).abs().max((predictions[1] - aim[1]).abs())
+		err1 = (predictions[0] - aim[0]).powf(2.0)+(predictions[1] - aim[1]).powf(2.0)
 	}
 
 	agent.runtime = time.elapsed();
