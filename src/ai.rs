@@ -25,7 +25,7 @@ impl std::ops::AddAssign for Error {
 
 pub fn train(agent: &mut Agent, data: &[f64]) -> Error {
 	agent.error = Error::new();
-	for i in 0..INPS {
+	for i in (0..INPS*2).step_by(2) {
 		let inp = &data[i..i+INPS];
 		let tgt = &data[i+INPS..i+INPS+2];
 		let res = run(agent, inp, tgt);
@@ -41,7 +41,7 @@ pub fn train(agent: &mut Agent, data: &[f64]) -> Error {
 
 pub fn test(agent: &mut Agent, data: &[f64]) -> Error {
 	agent.error = Error::new();
-	for i in 0..INPS {
+	for i in (0..INPS*2).step_by(2) {
 		run(agent, &data[i..i+INPS], &data[i+INPS..i+INPS+2]);
 	}
 

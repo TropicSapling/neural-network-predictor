@@ -3,7 +3,7 @@ use crate::{ai, ai::Error, Agent, DATA_SIZE, INPS};
 
 pub fn result(agent: &mut Agent, data: [f64; DATA_SIZE]) {
 	let mut error = Error::new();
-	for i in 0..(DATA_SIZE - INPS - 1) {
+	for i in (0..DATA_SIZE-INPS-1).step_by(2) {
 		if i == DATA_SIZE - INPS*2 {
 			println!("\n    ======================================================\n")
 		}

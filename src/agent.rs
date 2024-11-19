@@ -206,13 +206,13 @@ impl Brain {
 	fn mutate(&mut self) {
 		// Mutate neurons
 		for i in 0..self.neurons.len() {
-			if self.neurons[i].mutate(self.gen) {
+			if self.neurons[i].mutate() {
 				self.connect(*self.neurons.get_index(i).unwrap().0)
 			}
 		}
 
 		// Mutate neuron count
-		if Evolution::should_mutate_now(self.gen) {
+		if Evolution::should_mutate_now() {
 			if Evolution::should_expand_now() {
 				// Sometimes create new hidden neuron
 				self.neurons.insert(self.next_id, Neuron::new(NeuronType::HID));
@@ -253,6 +253,7 @@ impl Brain {
 			gen
 		};
 
+		// Create neurons
 		for id in 0..n {
 			let typ = match id {
 				0..INPS             => NeuronType::INP,
@@ -261,6 +262,10 @@ impl Brain {
 			};
 
 			brain.neurons.insert(id, Neuron::new(typ));
+		}
+
+		// Connect neurons
+		for id in 0..n {
 			brain.connect(id)
 		}
 
@@ -305,16 +310,16 @@ impl Neuron {
 		}
 	}
 
-	fn mutate(&mut self, gen: isize) -> bool {
+	fn mutate(&mut self) -> bool {
 		let mut add_conn = false;
 
 		// Mutate activation threshold
-		if Evolution::should_mutate_now(gen) {
+		if Evolution::should_mutate_now() {
 			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]
 		}
 
 		// Mutate connection count
-		if Evolution::should_mutate_now(gen) {
+		if Evolution::should_mutate_now() {
 			if Evolution::should_expand_now() {
 				// Sometimes create a new connection
 				add_conn = true
@@ -326,7 +331,7 @@ impl Neuron {
 
 		// Mutate outgoing connections
 		for conn in &mut self.next_conn {
-			if Evolution::should_mutate_now(gen) {
+			if Evolution::should_mutate_now() {
 				if rand_range(0..(2 + conn.weight.abs() as usize)) == 0 {
 					// Sometimes flip weight
 					conn.weight = -conn.weight
@@ -387,12 +392,9 @@ impl OutwardConn {
 }
 
 impl Evolution {
-	// Mutation rate decreases per generation
-	fn should_mutate_now(gen: isize) -> bool {
-		rand_range(0..=(gen/16).max(15)) == 0
-	}
-
-	// Always 50/50 if expansion or shrinking
+	// 50/50 if mutation or not
+	fn should_mutate_now() -> bool {rand_range(0..=1) == 0}
+	// 50/50 if expansion or shrinking
 	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
 }
 
