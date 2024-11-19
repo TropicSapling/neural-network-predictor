@@ -114,13 +114,13 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 		}
 
 		/*if maxerr == f64::MAX {
-			maxerr = agents.last().unwrap().maxerr
+			maxerr = agents.last().unwrap().error.max
 		}
 
 		for _ in 0..agents.len()/128 {
 			// Randomly select an agent to potentially remove
 			let i = rand_range(0..agents.len());
-			if rand_range(0.0..1.0) < agents[i].maxerr/maxerr && agents.len() > 128 {
+			if rand_range(0.0..1.0) < agents[i].error.max/maxerr && agents.len() > 8 {
 				agents.swap_remove(i);
 			}
 		}*/

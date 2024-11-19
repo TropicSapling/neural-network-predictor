@@ -392,8 +392,8 @@ impl OutwardConn {
 }
 
 impl Evolution {
-	// 50/50 if mutation or not
-	fn should_mutate_now() -> bool {rand_range(0..=1) == 0}
+	// 20/80 if mutation or not
+	fn should_mutate_now() -> bool {rand_range(0..=4) == 0}
 	// 50/50 if expansion or shrinking
 	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
 }
