@@ -288,7 +288,7 @@ impl Brain {
 	}
 
 	fn rand_id(&self) -> usize {
-		*self.neurons.get_index(rand_range(0..self.neurons.len())).unwrap().0
+		*self.neurons.get_index(rand_range(INPS..self.neurons.len())).unwrap().0
 	}
 }
 
