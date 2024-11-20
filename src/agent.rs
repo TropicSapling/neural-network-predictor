@@ -1,19 +1,17 @@
 use std::fmt;
 use std::time::Duration;
 
-use crate::helpers::*;
+use indexmap::{IndexMap, map::Slice};
+
+use crate::{ai::Error, helpers::*};
 
 pub const INPS: usize = 32;
 pub const OUTS: usize = 2;
 
-macro_rules! arr {
-	($elem:expr) => (core::array::from_fn(|_| $elem))
-}
-
 #[derive(Debug)]
 pub struct Agent {
-	pub brain  : Brain,
-	pub maxerr : f64,
+	pub brain: Brain,
+	pub error: Error,
 
 	pub runtime: Duration
 }
@@ -22,38 +20,44 @@ pub struct Agent {
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
-// TODO: Consider having HashMaps of Neurons with IDs instead of arrays.
-// - Would likely significantly simplify the code.
 
-/// neurons_inp: 365 numbers (normalise to [-1, 1]? if so how?)
-/// neurons_out: [bp, sp] (normalise to [-1, 1]? if so how?)
+// Maybe normalise I/O to [-1, 1]? If so how?
 #[derive(Clone)]
 pub struct Brain {
-	neurons_inp: [Neuron; INPS],
-	neurons_hid: Vec<Neuron>,
-	neurons_out: [Neuron; OUTS],
+	neurons: IndexMap<usize, Neuron>,
+	next_id: usize,
 
 	pub gen: isize
 }
 
 #[derive(Clone)]
 pub struct Neuron {
-	pub excitation    : f64,
-	pub act_threshold : f64,
+	pub excitation    : f64, // TODO: change to isize?
+	pub act_threshold : f64, // TODO: change to isize?
 
 	pub prev_conn: Vec<usize>,
 	pub next_conn: Vec<OutwardConn>,
 
-	reachable: bool,
-	inv_mut: usize
+	typ: NeuronType
 }
 
 #[derive(Clone, Debug)]
 pub struct OutwardConn {
-	pub dest_index: usize,
+	pub dst_id: usize,
 	pub weight: f64,
+	pub charge: f64,
+
 	pub relu: bool
 }
+
+#[derive(Clone)]
+enum NeuronType {
+	INP,
+	HID,
+	OUT
+}
+
+enum Evolution {}
 
 
 ////////////////////////////////////////////////////////////////
@@ -61,15 +65,15 @@ pub struct OutwardConn {
 
 
 impl Agent {
-	pub fn from(agents: &Vec<Agent>, maxsum: f64) -> Self {
+	pub fn from(agents: &Vec<Agent>, errsum: &Error) -> Self {
 		// Create entirely new agents the first two times
 		if agents.len() < 2 {
-			return Agent::with(Brain::new(1, 0))
+			return Agent::with(Brain::new(INPS+OUTS, 0))
 		}
 
 		// Select parents
-		let parent1 = Agent::select(agents, |parent| parent.maxerr, maxsum);
-		let parent2 = Agent::select(agents, |parent| parent.maxerr, maxsum);
+		let parent1 = Agent::select(agents, |parent| parent.error.max, errsum.max);
+		let parent2 = Agent::select(agents, |parent| parent.error.tot, errsum.tot);
 
 		// Return child of both
 		Agent::merge(parent1, parent2)
@@ -81,7 +85,7 @@ impl Agent {
 	}
 
 	fn with(brain: Brain) -> Self {
-		Agent {brain, maxerr: 0.0, runtime: Duration::new(0, 0)}
+		Agent {brain, error: Error::new(), runtime: Duration::new(0, 0)}
 	}
 
 	fn merge(parent1: &Self, parent2: &Self) -> Self {
@@ -93,7 +97,7 @@ impl Agent {
 		for _ in 0..7 {
 			for parent in agents {
 				// See error_share_formula.PNG
-				let share = (1.0/err(parent)).powf(4.0);
+				let share = 1.0/err(parent);
 				if rand_range(0.0..1.0) < share/errsum {
 					return parent
 				}
@@ -110,33 +114,36 @@ impl Agent {
 
 
 impl Brain {
-	pub fn input(&mut self) -> &mut [Neuron; INPS] {&mut self.neurons_inp}
+	pub fn input(&mut self) -> &mut Slice<usize, Neuron> {
+		self.neurons.get_range_mut(0..INPS).unwrap()
+	}
 
 	pub fn discharge(&mut self) {
-		for neuron in &mut self.neurons_hid {
+		for neuron in self.neurons.values_mut() {
 			neuron.excitation = 0.0
 		}
 	}
 
-	pub fn update_neurons(&mut self) -> &mut [Neuron; OUTS] {
-		for i in 0..self.neurons_inp.len() {
-			self.neurons_inp[i].reachable = true; // input neurons always reachable
-			self.update_neuron(i, true)
+	pub fn update_neurons(&mut self) -> &mut Slice<usize, Neuron> {
+		for i in 0..self.neurons.len() {
+			if i >= INPS && i < INPS+OUTS {continue}
+
+			self.update_neuron(i)
 		}
 
-		for i in 0..self.neurons_hid.len() {
-			self.update_neuron(i, false)
-		}
-
-		&mut self.neurons_out
+		self.neurons.get_range_mut(INPS..INPS+OUTS).unwrap()
 	}
 
-	fn update_neuron(&mut self, i: usize, is_input: bool) {
-		let neuron = match is_input {
-			true => &mut self.neurons_inp[i],
-			_    => &mut self.neurons_hid[i]
-		};
+	pub fn backprop(&mut self, outputs: [f64; OUTS], targets: &[f64]) {
+		for i in INPS..INPS+OUTS {
+			self.rewind_neuron(i, outputs[i-INPS] - targets[i-INPS])
+		}
+	}
 
+	fn update_neuron(&mut self, i: usize) {
+		let neuron = &mut self.neurons[i];
+
+		// Save excitation before reset
 		let excitation = neuron.excitation;
 		// Reset excitation
 		neuron.excitation = 0.0;
@@ -151,191 +158,147 @@ impl Brain {
 
 			// ... activate the connections
 			for conn in &mut activations {
-				let recv_neuron = if conn.dest_index < OUTS {
-					&mut self.neurons_out[conn.dest_index]
+				if let Some(recv_neuron) = self.neurons.get_mut(&conn.dst_id) {
+					conn.charge = match conn.relu {
+						true => conn.weight * excitation,
+						_    => conn.weight
+					};
+
+					recv_neuron.excitation += conn.charge
 				} else {
-					&mut self.neurons_hid[conn.dest_index - OUTS]
-				};
-
-				//let prev_recv_excitation = recv_neuron.excitation;
-
-				if conn.relu {
-					recv_neuron.excitation += conn.weight * excitation
-				} else {
-					recv_neuron.excitation += conn.weight;
-
-					// STDP (Spike-Timing-Dependent Plasticity)
-					// TODO: maybe make more realistic?
-					// NOTE: Having this on => network changes on every run!
-					/*if prev_recv_excitation >= recv_neuron.act_threshold {
-						// Receiver already has fired => weaken connection
-						Neuron::expand_or_shrink(&mut conn.weight, -1.0)
-					} else if recv_neuron.excitation >= recv_neuron.act_threshold {
-						// Receiver firing thanks to this => strengthen connection
-						Neuron::expand_or_shrink(&mut conn.weight, 1.0)
-					}*/
+					conn.weight = 0.0 // disable connection if broken
 				}
-
-				recv_neuron.reachable = true
 			}
 
-			let neuron = match is_input {
-				true => &mut self.neurons_inp[i],
-				_    => &mut self.neurons_hid[i]
-			};
+			// ... and finally apply potential changes
+			self.neurons[i].next_conn = activations
+		}
+	}
 
-			// ... and finally apply potential STDP changes
-			neuron.next_conn = activations
+	fn rewind_neuron(&mut self, i: usize, err: f64) {
+		let id = *self.neurons.get_index(i).unwrap().0;
+
+		let mut j = 0;
+		while j < self.neurons[i].prev_conn.len() {
+			let prev = self.neurons[i].prev_conn[j];
+			if let Some(neuron) = self.neurons.get_mut(&prev) {
+				for conn in &mut neuron.next_conn {
+					if conn.dst_id == id {
+						let sign = match conn.weight {
+							..0.0 => -conn.charge.signum(),
+							_     =>  conn.charge.signum()
+						};
+
+						/*match conn.relu {
+							true => conn.weight -= err.signum()*sign,
+							_    => conn.weight -= err.signum()
+						}*/
+					}
+				}
+
+				j += 1
+			} else {
+				self.neurons[i].prev_conn.swap_remove(j);
+			}
 		}
 	}
 
 	fn mutate(&mut self) {
-		let mut new_neurons = 0;
-		let mut new_conns   = 0;
-
-		// Mutate input neurons
-		let mut i = 0;
-		while i < self.neurons_inp.len() {
-			let neuron = &mut self.neurons_inp[i];
-
-			neuron.mutate(&mut new_neurons, &mut new_conns);
-
-			// Ensure there is always at least one outgoing connection left
-			if neuron.next_conn.len() < 1 {
-				self.connect(i)
+		// Mutate neurons
+		for i in 0..self.neurons.len() {
+			if self.neurons[i].mutate() {
+				self.connect(*self.neurons.get_index(i).unwrap().0)
 			}
-
-			i += 1
 		}
 
-		// Mutate hidden neurons
-		let mut i = 0;
-		while i < self.neurons_hid.len() {
-			let neuron = &mut self.neurons_hid[i];
+		// Mutate neuron count
+		if Evolution::should_mutate_now() {
+			if Evolution::should_expand_now() {
+				// Sometimes create new hidden neuron
+				self.neurons.insert(self.next_id, Neuron::new(NeuronType::HID));
+				self.connect(self.next_id);
+				self.next_id += 1
+			} else {
+				// Sometimes weaken a random connection
 
-			neuron.mutate(&mut new_neurons, &mut new_conns);
-
-			// Remove neuron if it has no outgoing connections
-			if neuron.next_conn.len() < 1 {
-				for prev in neuron.prev_conn.clone() {
-					let conns = match prev {
-						0..INPS => &mut self.neurons_inp[prev       ].next_conn,
-						_       => &mut self.neurons_hid[prev - INPS].next_conn,
-					};
-
-					conns.retain(|conn| conn.dest_index != OUTS + i)
+				let mut rand = rand_range(0..self.neurons.len());
+				while self.neurons[rand].next_conn.len() < 1 {
+					rand = rand_range(0..self.neurons.len())
 				}
 
-				/*self.neurons_hid.swap_remove(i);
+				let rand_weight = &mut self.neurons[rand].next_conn.rand().weight;
 
-				let hids              = self.neurons_hid.len();
-				let swapped_in_neuron = &mut self.neurons_hid[i];
-
-				swapped_in_neuron.prev_conn.retain(|prev| *prev != i);
-				for prev in &mut swapped_in_neuron.prev_conn {
-					if *prev == INPS + hids {
-						*prev = i
-					}
-				}
-
-				for prev in swapped_in_neuron.prev_conn.clone() {
-					let conns = match prev {
-						0..INPS => &mut self.neurons_inp[prev       ].next_conn,
-						_       => &mut self.neurons_hid[prev - INPS].next_conn,
-					};
-
-					conns.retain(|conn| conn.dest_index != OUTS + i)
-				}*/
-			}
-
-			i += 1
-		}
-
-		// Mutate output neurons
-		for neuron in &mut self.neurons_out {
-			neuron.mutate(&mut new_neurons, &mut new_conns);
-
-			// Ensure there is always at least one outgoing connection left
-			if neuron.next_conn.len() < 1 {
-				neuron.next_conn.push(OutwardConn::new(self.neurons_hid.len() + OUTS))
+				Neuron::expand_or_shrink(rand_weight, -1.0)
 			}
 		}
 
-		// Add new hidden neurons
-		for _ in 0..new_neurons {
-			self.neurons_hid.push(Neuron::new());
-			self.connect(INPS + self.neurons_hid.len() - 1);
-		}
-
-		// Add new outgoing connections
-		let neurons = INPS + self.neurons_hid.len() + OUTS;
-		for _ in 0..new_conns {
-			self.connect(rand_range(0..neurons))
-		}
+		// Retain only I/O neurons and active hidden neurons
+		self.neurons.retain(|id, neuron| *id<INPS+OUTS || neuron.next_conn.len() > 0)
 	}
 
-	fn connect(&mut self, i: usize) {
-		let conn = OutwardConn::new(self.neurons_hid.len() + OUTS);
-		let nout = INPS + self.neurons_hid.len();
+	fn connect(&mut self, id: usize) {
+		let conn = OutwardConn::to(self.rand_id());
 
-		if i < nout {
-			// Connect back to neuron #i
-			match conn.dest_index {
-				0..OUTS => self.neurons_out[conn.dest_index       ].prev_conn.push(i),
-				_       => self.neurons_hid[conn.dest_index - OUTS].prev_conn.push(i)
-			}
-		}
+		// Connect back to neuron #i
+		self.neurons.get_mut(&conn.dst_id).unwrap().prev_conn.push(id);
 
 		// Connect out from neuron #i
-		match i {
-			0..INPS       => self.neurons_inp[i       ].next_conn.push(conn),
-			_ if i < nout => self.neurons_hid[i - INPS].next_conn.push(conn),
-			_             => self.neurons_out[i - nout].next_conn.push(conn)
-		}
+		self.neurons.get_mut(&id).unwrap().next_conn.push(conn)
 	}
 
 	fn new(n: usize, gen: isize) -> Self {
-		Brain {
-			neurons_inp: arr![Neuron::new()   ],
-			neurons_hid: vec![Neuron::new(); n],
-			neurons_out: arr![Neuron::new()   ],
+		let mut brain = Brain {
+			neurons: IndexMap::new(),
+			next_id: n,
 			gen
-		}
-	}
+		};
 
-	fn merge(brain1: &Self, brain2: &Self) -> Self {
-		let minhid = brain1.neurons_hid.len().min(brain2.neurons_hid.len());
-		let maxhid = brain1.neurons_hid.len().max(brain2.neurons_hid.len());
+		// Create neurons
+		for id in 0..n {
+			let typ = match id {
+				0..INPS             => NeuronType::INP,
+				_ if id < INPS+OUTS => NeuronType::OUT,
+				_                   => NeuronType::HID
+			};
 
-		let mut brain = Brain::new(maxhid, brain1.gen.max(brain2.gen) + 1);
-
-		// Merge input neurons
-		for i in 0..INPS {
-			brain.neurons_inp[i].merge(&brain1.neurons_inp[i], &brain2.neurons_inp[i])
-		}
-
-		// Merge initial hidden neurons
-		for i in 0..minhid {
-			brain.neurons_hid[i].merge(&brain1.neurons_hid[i], &brain2.neurons_hid[i])
+			brain.neurons.insert(id, Neuron::new(typ));
 		}
 
-		// Merge remaining hidden neurons
-		let maxbrain = if brain1.neurons_hid.len() == maxhid {brain1} else {brain2};
-		for i in minhid..maxhid {
-			brain.neurons_hid[i] = maxbrain.neurons_hid[i].clone()
-		}
-
-		// Merge output neurons
-		for i in 0..OUTS {
-			brain.neurons_out[i].merge(&brain1.neurons_out[i], &brain2.neurons_out[i])
+		// Connect neurons
+		for id in 0..n {
+			brain.connect(id)
 		}
 
 		brain
 	}
+
+	fn merge(brain1: &Self, brain2: &Self) -> Self {
+		let minlen = brain1.neurons.len().min(brain2.neurons.len());
+		let maxlen = brain1.neurons.len().max(brain2.neurons.len());
+
+		let mut brain = Brain::new(maxlen, brain1.gen.max(brain2.gen) + 1);
+
+		// Merge initial neurons
+		for i in 0..minlen {
+			brain.neurons[i].merge(&brain1.neurons[i], &brain2.neurons[i])
+		}
+
+		// Merge remaining neurons
+		let maxbrain = if brain1.neurons.len() == maxlen {brain1} else {brain2};
+		for i in minlen..maxlen {
+			brain.neurons[i] = maxbrain.neurons[i].clone()
+		}
+
+		brain
+	}
+
+	fn rand_id(&self) -> usize {
+		*self.neurons.get_index(rand_range(INPS..self.neurons.len())).unwrap().0
+	}
 }
 
 impl Neuron {
-	fn new() -> Self {
+	fn new(typ: NeuronType) -> Self {
 		Neuron {
 			excitation    : 0.0,
 			act_threshold : 0.0,
@@ -343,42 +306,42 @@ impl Neuron {
 			prev_conn: vec![],
 			next_conn: vec![],
 
-			reachable: false,
-			inv_mut: 2
+			typ
 		}
 	}
 
-	// By default 11/89 if mutation of mutation rate or not
-	fn should_mutate_mut(inv_mut: usize) -> bool {rand_range(0..=inv_mut.pow(3)) == 0}
-	// By default 33/67 if mutation or not
-	fn should_mutate_now(inv_mut: usize) -> bool {rand_range(0..=inv_mut) == 0}
-	// Always 50/50 if expansion or shrinking
-	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
+	fn mutate(&mut self) -> bool {
+		let mut add_conn = false;
 
-	fn mutate(&mut self, new_neuron_count: &mut usize, new_conn_count: &mut usize) {
-		// Mutate neuron properties
-		if Neuron::should_mutate_mut(self.inv_mut) {
-			self.inv_mut.add_bounded([-1, 1][rand_range(0..=1)])}
-		if Neuron::should_mutate_now(self.inv_mut) {
-			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]}
+		// Mutate activation threshold
+		if Evolution::should_mutate_now() {
+			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]
+		}
+
+		// Mutate connection count
+		if Evolution::should_mutate_now() {
+			if Evolution::should_expand_now() {
+				// Sometimes create a new connection
+				add_conn = true
+			} else if self.next_conn.len() > 0 {
+				// Sometimes weaken an existing connection
+				Self::expand_or_shrink(&mut self.next_conn.rand().weight, -1.0)
+			}
+		}
 
 		// Mutate outgoing connections
 		for conn in &mut self.next_conn {
-			if Neuron::should_mutate_now(self.inv_mut) {
+			if Evolution::should_mutate_now() {
 				if rand_range(0..(2 + conn.weight.abs() as usize)) == 0 {
 					// Sometimes flip weight
 					conn.weight = -conn.weight
 				} else {
-					if Neuron::should_expand_now() {
-						// Sometimes expand weight or other stuff
-						match rand_range(0..3) {
-							0 => Neuron::expand_or_shrink(&mut conn.weight, 1.0),
-							1 => *new_conn_count   += 1,
-							_ => *new_neuron_count += 1
-						}
+					if Evolution::should_expand_now() {
+						// Sometimes expand weight
+						Self::expand_or_shrink(&mut conn.weight, 1.0)
 					} else {
 						// Sometimes shrink weight (which can effectively remove)
-						Neuron::expand_or_shrink(&mut conn.weight, -1.0)
+						Self::expand_or_shrink(&mut conn.weight, -1.0)
 					}
 				}
 			}
@@ -390,8 +353,7 @@ impl Neuron {
 		// Reset excitation
 		self.excitation = 0.0;
 
-		// Assume not reachable until proven otherwise
-		self.reachable = false
+		add_conn
 	}
 
 	fn merge(&mut self, neuron1: &Neuron, neuron2: &Neuron) {
@@ -418,44 +380,38 @@ impl Neuron {
 }
 
 impl OutwardConn {
-	fn new(recv_neuron_count: usize) -> Self {
+	fn to(dst_id: usize) -> Self {
 		OutwardConn {
-			dest_index: rand_range(0..recv_neuron_count),
+			dst_id,
 			weight: [-1.0, 1.0][rand_range(0..=1)],
+			charge: 0.0,
+
 			relu: [false, true][rand_range(0..=1)]
 		}
 	}
+}
+
+impl Evolution {
+	// 20/80 if mutation or not
+	fn should_mutate_now() -> bool {rand_range(0..=4) == 0}
+	// 50/50 if expansion or shrinking
+	fn should_expand_now() -> bool {rand_range(0..=1) == 0}
 }
 
 impl fmt::Debug for Brain {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let mut s = String::from("Brain {\n");
 
-		s += "\tneurons_inp: [\n";
-		/*for neuron in &self.neurons_inp {
-			s += &format!("\t\t{neuron:#?},\n")
-		}*/ s += &format!("\t\t... ({})\n", INPS);
+		let mut inactives = 0;
 
-		let (mut unreachables, mut inactives) = (0, 0);
-
-		s += "\t],\n\n\tneurons_hid: [\n";
-		//for (i, neuron) in self.neurons_hid.iter().enumerate() {
-		for neuron in self.neurons_hid.iter() {
-			if neuron.reachable {
-				//s += &format!("\t\t#{}: {neuron:#?},\n", i + OUTS)
-			} else {
-				unreachables += 1;
-				if neuron.next_conn.len() < 1 {
-					inactives += 1
-				}
+		s += "\tneurons: [\n";
+		for (_id, neuron) in &self.neurons {
+			//s += &format!("\t\t#{id}: {neuron:#?},\n");
+			if neuron.next_conn.len() < 1 {
+				inactives += 1
 			}
-		} s += &format!("\t\t... ({})\n", self.neurons_hid.len());
-		s += &format!("\n\t\tUNREACHABLES: {unreachables} (inactive: {inactives})\n");
-
-		s += "\t],\n\n\tneurons_out: [\n";
-		for (i, neuron) in self.neurons_out.iter().enumerate() {
-			s += &format!("\t\t#{i}: {neuron:#?},\n")
-		}
+		} s += &format!("\t\t... ({})\n", self.neurons.len());
+		s += &format!("\n\t\t(inactive: {inactives})\n");
 
 		write!(f, "{s}\t],\n\n\tgen: {},\n}}", self.gen)
 	}
@@ -464,13 +420,7 @@ impl fmt::Debug for Brain {
 impl fmt::Debug for Neuron {
 	// Print neuron debug info in a concise way
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		if !self.reachable {
-			if self.next_conn.len() < 1 {
-				write!(f, "➖ Neuron {{UNREACHABLE & INACTIVE}}")
-			} else {
-				write!(f, "➖ Neuron {{UNREACHABLE, conns={}}}", self.next_conn.len())
-			}
-		} else if self.next_conn.len() < 1 {
+		if self.next_conn.len() < 1 {
 			write!(f, "➖ Neuron {{INACTIVE}}")
 		} else {
 			let (is_at, act_at) = (self.excitation, self.act_threshold);
@@ -487,16 +437,19 @@ impl fmt::Debug for Neuron {
 				} else {"✖️ "}
 			);
 
-			let mut s = format!(
-				"{s}Neuron {{IS@{:.1} | ACT@{:.1} | INVMUT@{} | ",
-				             is_at,     act_at,     self.inv_mut
-			);
+			let t = match self.typ {
+				NeuronType::INP => "INP",
+				NeuronType::HID => "HID",
+				NeuronType::OUT => "OUT"
+			};
+
+			let mut s = format!("{s}{t} Neuron {{IS@{is_at:.1} | ACT@{act_at:.1} | ");
 
 			let mut conn_iter = self.next_conn.iter().peekable();
 			while let Some(conn) = conn_iter.next() {
 				let relu = if conn.relu {"*"} else {""};
 
-				s += &format!("({relu}{:.1})->#{}", conn.weight, conn.dest_index);
+				s += &format!("({relu}{:.1})->#{}", conn.weight, conn.dst_id);
 				if !conn_iter.peek().is_none() {
 					s += ", "
 				}
