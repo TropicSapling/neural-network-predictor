@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use indexmap::{IndexMap, map::Slice};
 
-use crate::{ai::Error, helpers::*};
+use crate::{ai::Error, data::*, helpers::*};
 
 pub const INPS: usize = 32;
 pub const OUTS: usize = 2;
@@ -134,7 +134,7 @@ impl Brain {
 		self.neurons.get_range_mut(INPS..INPS+OUTS).unwrap()
 	}
 
-	pub fn backprop(&mut self, outputs: [f64; OUTS], targets: &[f64]) {
+	pub fn backprop(&mut self, outputs: DataRow, targets: DataRow) {
 		for i in INPS..INPS+OUTS {
 			self.rewind_neuron(i, outputs[i-INPS] - targets[i-INPS])
 		}

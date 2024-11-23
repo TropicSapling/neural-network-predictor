@@ -1,23 +1,23 @@
 use std::{error::Error, io::stdin};
+use crate::{INPS, OUTS};
 
-pub const DATA_SIZE: usize = crate::INPS*(crate::PARTITIONS+4);
+pub const DATA_SIZE: usize = INPS*(crate::PARTITIONS+4);
+pub const TEST_SIZE: usize = 16;
 
-pub fn read_data() -> Result<[f64; DATA_SIZE], Box<dyn Error>> {
-	let mut inp = [0.0; DATA_SIZE];
+pub type DataRow = [f64; OUTS];
+pub type Data    = [DataRow; DATA_SIZE];
+
+pub fn read_data() -> Result<Data, Box<dyn Error>> {
+	let mut inp = [[0.0; OUTS]; DATA_SIZE];
 	let mut csv = csv::Reader::from_reader(stdin());
 
 	// Parse the CSV row-by-row and save as i/o data
-	let mut i = 0;
-	for res in csv.deserialize() {
-		let rec: (f64, f64) = res?;
+	for (i, res) in csv.deserialize().enumerate() {
 		if i >= DATA_SIZE {
 			break
 		}
 
-		inp[DATA_SIZE - i - 1] = rec.0;
-		inp[DATA_SIZE - i - 2] = rec.1;
-
-		i += 2
+		inp[i] = res?
 	}
 
 	Ok(inp)

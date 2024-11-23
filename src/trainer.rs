@@ -1,8 +1,8 @@
-use crate::{ai, ai::Error, debug, helpers::rand_range};
-use crate::{Agent, INPS, DATA_SIZE, PARTITIONS};
+use crate::{agent::*, ai, ai::Error, data::*, debug, helpers::rand_range};
+use crate::PARTITIONS;
 
 struct Trainer {
-	data: [f64; DATA_SIZE],
+	data: Data,
 
 	partit: usize,
 	errsum: Error
@@ -14,7 +14,7 @@ struct Trainer {
 
 
 impl Trainer {
-	fn from(data: [f64; DATA_SIZE]) -> Self {
+	fn from(data: Data) -> Self {
 		Trainer {
 			data,
 
@@ -27,7 +27,7 @@ impl Trainer {
 		(agent.error.max, agent.error.tot, -agent.brain.gen, agent.runtime)
 	}
 
-	fn data(&self) -> &[f64] {
+	fn data(&self) -> &[DataRow] {
 		&self.data[self.partit*INPS..(self.partit+3)*INPS]
 	}
 
@@ -88,7 +88,7 @@ impl Trainer {
 ////////////////////////////////////////////////////////////////
 
 
-pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize) {
+pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 	let mut trainer = Trainer::from(data);
 
 	//let mut maxerr = f64::MAX;

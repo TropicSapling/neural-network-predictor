@@ -1,17 +1,18 @@
 use std::io::{stdout, Write};
-use crate::{ai, ai::Error, Agent, DATA_SIZE, INPS};
+use crate::{ai, ai::*, agent::*, data::*};
 
-pub fn result(agent: &mut Agent, data: [f64; DATA_SIZE]) {
+pub fn result(agent: &mut Agent, data: Data) {
 	let mut error = Error::new();
-	for i in (0..DATA_SIZE-INPS-1).step_by(2) {
-		if i == DATA_SIZE - INPS*2 {
-			println!("\n    ======================================================\n")
+	for i in 0..data.len()-INPS/OUTS {
+		if i == data.len() - 2*INPS/OUTS {
+			print!("\n               ");
+			println!("============================================================\n");
 		}
 
 		// Run agent
-		let inp = format!("#{i:<3} - {:<6.2} .. {:<6.2}", data[i], data[i+INPS-1]);
-		let tgt = &data[i+INPS..i+INPS+2];
-		let out = ai::run(agent, &data[i..i+INPS], tgt);
+		let inp = format!("#{i:<3} - {:<5?} .. {:<5?}", data[i], data[i+INPS/OUTS-1]);
+		let tgt = data[i+INPS/OUTS];
+		let out = ai::run(agent, &data[i..i+INPS/OUTS], tgt);
 
 		// Calculate error
 		let err = (out[0] - tgt[0]).abs() + (out[1] - tgt[1]).abs();

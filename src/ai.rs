@@ -1,4 +1,4 @@
-use crate::{agent::*, input, output};
+use crate::{agent::*, data::*, input, output};
 
 #[derive(Clone, Debug)]
 pub struct Error {
@@ -23,11 +23,11 @@ impl std::ops::AddAssign for Error {
 
 ////////////////////////////////////////////////////////////////
 
-pub fn train(agent: &mut Agent, data: &[f64]) -> Error {
+pub fn train(agent: &mut Agent, data: &[DataRow]) -> Error {
 	agent.error = Error::new();
-	for i in (0..INPS*2).step_by(2) {
-		let inp = &data[i..i+INPS];
-		let tgt = &data[i+INPS..i+INPS+2];
+	for i in 0..TEST_SIZE {
+		let inp = &data[i..i+INPS/OUTS];
+		let tgt = data[i+INPS/OUTS];
 		let res = run(agent, inp, tgt);
 
 		agent.brain.backprop(res, tgt)
@@ -39,10 +39,10 @@ pub fn train(agent: &mut Agent, data: &[f64]) -> Error {
 	}
 }
 
-pub fn test(agent: &mut Agent, data: &[f64]) -> Error {
+pub fn test(agent: &mut Agent, data: &[DataRow]) -> Error {
 	agent.error = Error::new();
-	for i in (0..INPS*2).step_by(2) {
-		run(agent, &data[i..i+INPS], &data[i+INPS..i+INPS+2]);
+	for i in 0..TEST_SIZE {
+		run(agent, &data[i..i+INPS/OUTS], data[i+INPS/OUTS]);
 	}
 
 	Error {
@@ -53,7 +53,7 @@ pub fn test(agent: &mut Agent, data: &[f64]) -> Error {
 
 ////////////////////////////////////////////////////////////////
 
-pub fn run(agent: &mut Agent, inp: &[f64], aim: &[f64]) -> [f64; OUTS] {
+pub fn run(agent: &mut Agent, inp: &[DataRow], aim: DataRow) -> DataRow {
 	// TODO: If get poor results, try pseudo-normalize i/o using log(...)
 	// - Could potentially have "log" variant for each neuron
 	let mut predictions = [0.0; OUTS];
