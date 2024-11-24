@@ -112,7 +112,9 @@ pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 			trainer.optimise(agents);
 			trainer.crossval(agents);
 
-			debug::progress(&agents[0], agents.len(), n, iterations)
+			let agents_alive = agents.len();
+
+			debug::progress(&mut agents[0], data, agents_alive, n, iterations)
 		}
 
 		/*if maxerr == f64::MAX {

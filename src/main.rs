@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 	let input_data = read_data()?;
 	
 	// Train agents on the input data
-	trainer::train(&mut agents, input_data, 26624);
+	trainer::train(&mut agents, input_data, 53248);
 
 	// Print final top agent
 	debug::result(&mut agents[0], input_data);

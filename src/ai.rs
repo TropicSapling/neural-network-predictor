@@ -28,7 +28,7 @@ pub fn train(agent: &mut Agent, data: &[DataRow]) -> Error {
 	for i in 0..TEST_SIZE {
 		let inp = &data[i..i+INPS_SIZE];
 		let tgt = data[i+INPS_SIZE];
-		let res = run(agent, inp, tgt);
+		let res = run(agent, inp, tgt, true);
 
 		agent.brain.backprop(res, tgt)
 	}
@@ -42,7 +42,7 @@ pub fn train(agent: &mut Agent, data: &[DataRow]) -> Error {
 pub fn test(agent: &mut Agent, data: &[DataRow]) -> Error {
 	agent.error = Error::new();
 	for i in 0..TEST_SIZE {
-		run(agent, &data[i..i+INPS_SIZE], data[i+INPS_SIZE]);
+		run(agent, &data[i..i+INPS_SIZE], data[i+INPS_SIZE], true);
 	}
 
 	Error {
@@ -53,7 +53,7 @@ pub fn test(agent: &mut Agent, data: &[DataRow]) -> Error {
 
 ////////////////////////////////////////////////////////////////
 
-pub fn run(agent: &mut Agent, inp: &[DataRow], aim: DataRow) -> DataRow {
+pub fn run(agent: &mut Agent, inp: &[DataRow], aim: DataRow, save: bool) -> DataRow {
 	// TODO: If get poor results, try pseudo-normalize i/o using log(...)
 	// - Could potentially have "log" variant for each neuron
 	let mut predictions = [0.0; OUTS];
@@ -82,10 +82,12 @@ pub fn run(agent: &mut Agent, inp: &[DataRow], aim: DataRow) -> DataRow {
 	agent.runtime = time.elapsed();
 	agent.brain.discharge();
 
-	// Record total & max errors
-	agent.error.tot += err1;
-	if err1 > agent.error.max {
-		agent.error.max = err1
+	if save {
+		// Record total & max errors
+		agent.error.tot += err1;
+		if err1 > agent.error.max {
+			agent.error.max = err1
+		}
 	}
 
 	predictions
