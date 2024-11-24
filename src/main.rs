@@ -1,21 +1,16 @@
+mod ai;
 mod data;
 mod debug;
-mod helpers;
-
-mod ai;
-mod agent;
 mod input;
 mod output;
 mod trainer;
 
-use std::error::Error;
-use agent::*;
-use data::*;
+mod agent;
+mod consts;
+mod helpers;
 
-// All I/O is upscaled/downscaled by 128x
-const RESOLUTION: f64 = 128.0;
-// Partitions for cross-validation
-const PARTITIONS: usize = 2;
+use std::error::Error;
+use data::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
 	println!("");
@@ -24,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 	let input_data = read_data()?;
 	
 	// Train agents on the input data
-	trainer::train(&mut agents, input_data, 26624);
+	trainer::train(&mut agents, input_data, 53248);
 
 	// Print final top agent
 	debug::result(&mut agents[0], input_data);

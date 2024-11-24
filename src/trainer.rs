@@ -1,8 +1,8 @@
-use crate::{ai, ai::Error, debug, helpers::rand_range};
-use crate::{Agent, INPS, DATA_SIZE, PARTITIONS};
+use crate::{agent::*, ai, ai::Error, data::*, debug};//, helpers::rand_range};
+use crate::consts::*;
 
 struct Trainer {
-	data: [f64; DATA_SIZE],
+	data: Data,
 
 	partit: usize,
 	errsum: Error
@@ -14,7 +14,7 @@ struct Trainer {
 
 
 impl Trainer {
-	fn from(data: [f64; DATA_SIZE]) -> Self {
+	fn from(data: Data) -> Self {
 		Trainer {
 			data,
 
@@ -27,8 +27,10 @@ impl Trainer {
 		(agent.error.max, agent.error.tot, -agent.brain.gen, agent.runtime)
 	}
 
-	fn data(&self) -> &[f64] {
-		&self.data[self.partit*INPS..(self.partit+3)*INPS]
+	fn data(&self) -> &[DataRow] {
+		let size = TEST_SIZE + INPS_SIZE;
+
+		&self.data[self.partit*size..(self.partit+1)*size]
 	}
 
 	fn sort(agents: &mut Vec<Agent>) {
@@ -88,7 +90,7 @@ impl Trainer {
 ////////////////////////////////////////////////////////////////
 
 
-pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize) {
+pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 	let mut trainer = Trainer::from(data);
 
 	//let mut maxerr = f64::MAX;
@@ -110,7 +112,9 @@ pub fn train(agents: &mut Vec<Agent>, data: [f64; DATA_SIZE], iterations: usize)
 			trainer.optimise(agents);
 			trainer.crossval(agents);
 
-			debug::progress(&agents[0], agents.len(), n, iterations)
+			let agents_alive = agents.len();
+
+			debug::progress(&mut agents[0], data, agents_alive, n, iterations)
 		}
 
 		/*if maxerr == f64::MAX {
