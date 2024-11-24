@@ -1,5 +1,5 @@
 use indexmap::map::Slice;
-use crate::{agent::*, data::*};
+use crate::{agent::*, consts::*, data::*};
 
 pub fn assign(predictions: &mut DataRow, output: &mut Slice<usize, Neuron>) {
 	for (id, out) in output {
@@ -21,6 +21,6 @@ pub fn assign(predictions: &mut DataRow, output: &mut Slice<usize, Neuron>) {
 			}
 		}
 
-		predictions[id - INPS] /= crate::RESOLUTION // downscale by `RESOLUTION`
+		predictions[id - INPS] /= RESOLUTION // downscale by `RESOLUTION`
 	}
 }

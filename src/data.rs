@@ -1,8 +1,5 @@
 use std::{error::Error, io::stdin};
-use crate::{INPS, OUTS};
-
-pub const DATA_SIZE: usize = INPS*(crate::PARTITIONS+4);
-pub const TEST_SIZE: usize = 16;
+use crate::consts::*;
 
 pub type DataRow = [f64; OUTS];
 pub type Data    = [DataRow; DATA_SIZE];

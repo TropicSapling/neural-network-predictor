@@ -1,4 +1,4 @@
-use crate::{agent::*, data::*, input, output};
+use crate::{agent::*, consts::*, data::*, input, output};
 
 #[derive(Clone, Debug)]
 pub struct Error {
@@ -26,8 +26,8 @@ impl std::ops::AddAssign for Error {
 pub fn train(agent: &mut Agent, data: &[DataRow]) -> Error {
 	agent.error = Error::new();
 	for i in 0..TEST_SIZE {
-		let inp = &data[i..i+INPS/OUTS];
-		let tgt = data[i+INPS/OUTS];
+		let inp = &data[i..i+INPS_SIZE];
+		let tgt = data[i+INPS_SIZE];
 		let res = run(agent, inp, tgt);
 
 		agent.brain.backprop(res, tgt)
@@ -42,7 +42,7 @@ pub fn train(agent: &mut Agent, data: &[DataRow]) -> Error {
 pub fn test(agent: &mut Agent, data: &[DataRow]) -> Error {
 	agent.error = Error::new();
 	for i in 0..TEST_SIZE {
-		run(agent, &data[i..i+INPS/OUTS], data[i+INPS/OUTS]);
+		run(agent, &data[i..i+INPS_SIZE], data[i+INPS_SIZE]);
 	}
 
 	Error {

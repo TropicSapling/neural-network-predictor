@@ -1,5 +1,5 @@
-use crate::{agent::*, ai, ai::Error, data::*, debug, helpers::rand_range};
-use crate::PARTITIONS;
+use crate::{agent::*, ai, ai::Error, data::*, debug};//, helpers::rand_range};
+use crate::consts::*;
 
 struct Trainer {
 	data: Data,
@@ -28,7 +28,9 @@ impl Trainer {
 	}
 
 	fn data(&self) -> &[DataRow] {
-		&self.data[self.partit*INPS..(self.partit+3)*INPS]
+		let size = TEST_SIZE + INPS_SIZE;
+
+		&self.data[self.partit*size..(self.partit+1)*size]
 	}
 
 	fn sort(agents: &mut Vec<Agent>) {

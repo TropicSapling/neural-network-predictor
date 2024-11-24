@@ -1,12 +1,6 @@
-use std::fmt;
-use std::time::Duration;
-
+use std::{fmt, time::Duration};
 use indexmap::{IndexMap, map::Slice};
-
-use crate::{ai::Error, data::*, helpers::*};
-
-pub const INPS: usize = 32;
-pub const OUTS: usize = 2;
+use crate::{ai::Error, consts::*, data::*, helpers::*};
 
 #[derive(Debug)]
 pub struct Agent {
@@ -175,8 +169,8 @@ impl Brain {
 		}
 	}
 
-	fn rewind_neuron(&mut self, i: usize, err: f64) {
-		let id = *self.neurons.get_index(i).unwrap().0;
+	fn rewind_neuron(&mut self, _i: usize, _err: f64) {
+		/*let id = *self.neurons.get_index(i).unwrap().0;
 
 		let mut j = 0;
 		while j < self.neurons[i].prev_conn.len() {
@@ -189,10 +183,10 @@ impl Brain {
 							_     =>  conn.charge.signum()
 						};
 
-						/*match conn.relu {
+						match conn.relu {
 							true => conn.weight -= err.signum()*sign,
 							_    => conn.weight -= err.signum()
-						}*/
+						}
 					}
 				}
 
@@ -200,7 +194,7 @@ impl Brain {
 			} else {
 				self.neurons[i].prev_conn.swap_remove(j);
 			}
-		}
+		}*/
 	}
 
 	fn mutate(&mut self) {

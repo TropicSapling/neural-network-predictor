@@ -1,18 +1,17 @@
 use std::io::{stdout, Write};
-use crate::{ai, ai::*, agent::*, data::*};
+use crate::{ai, ai::*, agent::*, consts::*, data::*};
 
 pub fn result(agent: &mut Agent, data: Data) {
 	let mut error = Error::new();
-	for i in 0..data.len()-INPS/OUTS {
-		if i == data.len() - 2*INPS/OUTS {
-			print!("\n               ");
-			println!("============================================================\n");
+	for i in 0..data.len()-INPS_SIZE {
+		if i == data.len() - 2*INPS_SIZE {
+			print!("\n                   ");
+			println!("===========================================================\n");
 		}
 
 		// Run agent
-		let inp = format!("#{i:<3} - {:<5?} .. {:<5?}", data[i], data[i+INPS/OUTS-1]);
-		let tgt = data[i+INPS/OUTS];
-		let out = ai::run(agent, &data[i..i+INPS/OUTS], tgt);
+		let tgt = data[i+INPS_SIZE];
+		let out = ai::run(agent, &data[i..i+INPS_SIZE], tgt);
 
 		// Calculate error
 		let err = (out[0] - tgt[0]).abs() + (out[1] - tgt[1]).abs();
@@ -23,8 +22,12 @@ pub fn result(agent: &mut Agent, data: Data) {
 			error.max = err
 		}
 
+		// Format input
+		let j   = i + INPS_SIZE - 1;
+		let inp = format!("{i:0>3}..{j:0>3} - {:>6.2?}..{:>6.2?}", data[i], data[j]);
+
 		// Print results for this input
-		println!("{inp} => {out:>6.2?} (err={err:<4.2}) <= {tgt:.2?}")
+		println!("{inp} => {out:>6.2?} (err={err:0>5.2}) <= {tgt:>6.2?}")
 	}
 
 	println!("\nNeural Network: {:#?}\n\n{error:.2?}", agent.brain);
