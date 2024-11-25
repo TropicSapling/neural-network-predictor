@@ -24,7 +24,7 @@ impl Trainer {
 	}
 
 	fn rank(agent: &Agent) -> (f64, f64, isize, std::time::Duration) {
-		(agent.error.max, agent.error.tot, -agent.brain.gen, agent.runtime)
+		(agent.error.tot, agent.error.max, -agent.brain.gen, agent.runtime)
 	}
 
 	fn data(&self) -> &[DataRow] {
