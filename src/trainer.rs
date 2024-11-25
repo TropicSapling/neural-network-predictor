@@ -90,6 +90,9 @@ impl Trainer {
 ////////////////////////////////////////////////////////////////
 
 
+// TODO: Try setting first agents' outputs to target data averages
+// - might improve performance
+
 pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 	let mut trainer = Trainer::from(data);
 
