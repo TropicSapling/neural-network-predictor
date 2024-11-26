@@ -6,7 +6,7 @@ pub fn result(agent: &mut Agent, data: Data) {
 	let mut error = Error::new();
 	for i in 0..data.len()-INPS_SIZE {
 		// Print a separation line once we reach the held-out test set
-		if i == data.len() - 2*INPS_SIZE {
+		if i == data.len() - INPS_SIZE - TEST_SIZE {
 			print!("\n                   ");
 			println!("===========================================================\n");
 		}
