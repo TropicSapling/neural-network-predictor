@@ -9,13 +9,17 @@ pub fn read_data() -> Result<Data, Box<dyn Error>> {
 	let mut csv = csv::Reader::from_reader(stdin());
 
 	// Parse the CSV row-by-row and save as i/o data
+	let mut enough_data = false;
 	for (i, res) in csv.deserialize().enumerate() {
 		if i >= DATA_SIZE {
+			enough_data = true;
 			break
 		}
 
 		inp[i] = res?
 	}
+
+	assert!(enough_data);
 
 	Ok(inp)
 }
