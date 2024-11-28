@@ -10,6 +10,10 @@ impl Error {
 	pub fn new() -> Self {
 		Error {max: 0.0, tot: 0.0}
 	}
+
+	pub fn max() -> Self {
+		Error {max: f64::MAX, tot: f64::MAX}
+	}
 }
 
 impl std::ops::AddAssign for Error {

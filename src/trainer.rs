@@ -1,11 +1,13 @@
 use crate::{agent::*, ai, ai::Error, data::*, debug};//, helpers::rand_range};
 use crate::consts::*;
 
+// TODO: also save top-train agent for dbg printing
 struct Trainer {
 	data: Data,
 
 	partit: usize,
-	errsum: Error
+	errsum: Error,
+	valerr: Error
 }
 
 
@@ -19,7 +21,8 @@ impl Trainer {
 			data,
 
 			partit: 0,
-			errsum: Error::new()
+			errsum: Error::new(),
+			valerr: Error::max()
 		}
 	}
 
@@ -35,6 +38,12 @@ impl Trainer {
 
 	fn sort(agents: &mut Vec<Agent>) {
 		agents.sort_by(|a, b| Self::rank(a).partial_cmp(&Self::rank(b)).unwrap())
+	}
+
+	fn best_of(agents: &Vec<Agent>) -> usize {
+		agents.iter().enumerate()
+			.min_by(|(_,a), (_,b)| Self::rank(a).partial_cmp(&Self::rank(b)).unwrap())
+			.map(|(i,_)| i).unwrap()
 	}
 
 	fn optimise(&self, agents: &mut Vec<Agent>) {
@@ -55,6 +64,9 @@ impl Trainer {
 	}
 
 	fn crossval(&mut self, agents: &mut Vec<Agent>) {
+		// Get top-performing agent
+		let top_train = Self::best_of(agents);
+
 		// Backup training errors
 		let mut train_errs = vec![];
 		for agent in &*agents {
@@ -64,22 +76,21 @@ impl Trainer {
 		// Run against validation set (cross-validation)
 		let val_errsum = self.validate(agents);
 
-		if agents[0].error.max > train_errs[0].max {
-			// Switch training set if performance was poor
+		// If got poor validation error...
+		if agents[top_train].error.tot > self.valerr.tot {
+			// ... discard all agents of this epoch
+			agents.truncate(128);
+
+			// ... and switch training set
 			self.partit = (self.partit + 1) % PARTITIONS;
-			self.errsum = val_errsum;
-
-			Self::sort(agents)
+			self.errsum = val_errsum
 		} else {
-			// Otherwise restore training errors
-			self.errsum = Error::new();
-			for (i, agent) in agents.iter_mut().enumerate() {
-				agent.error = train_errs[i].clone();
+			// Otherwise, save new validation error...
+			self.valerr = agents[top_train].error.clone();
 
-				self.errsum += Error {
-					max: 1.0/agent.error.max,
-					tot: 1.0/agent.error.tot
-				}
+			// ... and restore training errors
+			for (agent, train_err) in agents.iter_mut().zip(train_errs) {
+				agent.error = train_err
 			}
 		}
 	}
@@ -107,10 +118,10 @@ pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 		// ... and save it
 		agents.push(agent);
 
-		// Once in a while, prune and validate
+		// Once in a while, prune and validate (end epoch)
 		if n % 256 == 0 {
-			trainer.optimise(agents);
 			trainer.crossval(agents);
+			trainer.optimise(agents);
 
 			let agents_alive = agents.len();
 
