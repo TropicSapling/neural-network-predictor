@@ -28,7 +28,7 @@ impl Trainer {
 	}
 
 	fn rank(agent: &Agent) -> (f64, f64, isize, std::time::Duration) {
-		(agent.error.tot, agent.error.max, -agent.brain.gen, agent.runtime)
+		(agent.error.avg, agent.error.max, -agent.brain.gen, agent.runtime)
 	}
 
 	fn data(&self, size: usize) -> &[DataRow] {
@@ -79,7 +79,7 @@ impl Trainer {
 		let val_errsum = self.validate(agents);
 
 		// If got poor validation error...
-		if agents[top_train].error.tot > self.valerr.tot {
+		if agents[top_train].error.avg > self.valerr.avg {
 			// ... discard all agents of this epoch
 			agents.truncate(128);
 

@@ -67,7 +67,7 @@ impl Agent {
 
 		// Select parents
 		let parent1 = Agent::select(agents, |parent| parent.error.max, errsum.max);
-		let parent2 = Agent::select(agents, |parent| parent.error.tot, errsum.tot);
+		let parent2 = Agent::select(agents, |parent| parent.error.avg, errsum.avg);
 
 		// Return child of both
 		Agent::merge(parent1, parent2)
