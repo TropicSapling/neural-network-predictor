@@ -1,12 +1,12 @@
 use crate::{agent::*, ai, ai::Error, data::*, debug};//, helpers::rand_range};
 use crate::consts::*;
 
-// TODO: Increase training set size - should be 4x larger than validation set
-// TODO: also save top-train agent for dbg printing
+const TRAINSPAN: usize = TEST_SIZE*4 + INPS_SIZE;
+
 struct Trainer {
 	data: Data,
 
-	partit: usize,
+	pstart: usize,
 	errsum: Error,
 	valerr: Error
 }
@@ -21,7 +21,7 @@ impl Trainer {
 		Trainer {
 			data,
 
-			partit: 0,
+			pstart: 0,
 			errsum: Error::new(),
 			valerr: Error::max()
 		}
@@ -31,11 +31,12 @@ impl Trainer {
 		(agent.error.tot, agent.error.max, -agent.brain.gen, agent.runtime)
 	}
 
-	fn data(&self) -> &[DataRow] {
-		let size = TEST_SIZE + INPS_SIZE;
-
-		&self.data[self.partit*size..(self.partit+1)*size]
+	fn data(&self, size: usize) -> &[DataRow] {
+		&self.data[self.pstart..self.pstart+size]
 	}
+
+	fn train_data(&self) -> &[DataRow] {self.data(TRAINSPAN)}
+	fn tests_data(&self) -> &[DataRow] {self.data(SPAN_SIZE)}
 
 	fn sort(agents: &mut Vec<Agent>) {
 		agents.sort_by(|a, b| Self::rank(a).partial_cmp(&Self::rank(b)).unwrap())
@@ -55,11 +56,11 @@ impl Trainer {
 	fn validate(&mut self, agents: &mut Vec<Agent>) -> Error {
 		let mut errsum = Error::new();
 
-		self.partit += 1;
+		self.pstart += TRAINSPAN;
 		for agent in agents {
-			errsum += ai::test(agent, self.data())
+			errsum += ai::test(agent, self.tests_data())
 		}
-		self.partit -= 1;
+		self.pstart -= TRAINSPAN;
 
 		errsum
 	}
@@ -82,9 +83,12 @@ impl Trainer {
 			// ... discard all agents of this epoch
 			agents.truncate(128);
 
-			// ... and switch training set
-			self.partit = (self.partit + 1) % PARTITIONS;
-			self.errsum = val_errsum
+			// ... switch training set
+			self.pstart = (self.pstart + SPAN_SIZE) % (SPAN_SIZE * PARTITIONS);
+			self.errsum = val_errsum;
+
+			// ... and reset validation error
+			self.valerr = Error::max()
 		} else {
 			// Otherwise, save new validation error...
 			self.valerr = agents[top_train].error.clone();
@@ -110,7 +114,7 @@ pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 		let mut agent = Agent::from(&agents, &trainer.errsum);
 
 		// Train the agent...
-		let err = ai::train(&mut agent, trainer.data());
+		let err = ai::train(&mut agent, trainer.train_data());
 		if agent.runtime.as_micros() > 15 {
 			continue // discard slow agents
 		}

@@ -6,7 +6,7 @@ pub fn result(agent: &mut Agent, data: Data) {
 	let mut error = Error::new();
 	for i in 0..data.len()-INPS_SIZE {
 		// Print a separation line once we reach the held-out test set
-		if i == data.len() - INPS_SIZE - TEST_SIZE {
+		if i == data.len() - SPAN_SIZE {
 			print!("\n                   ");
 			println!("===========================================================\n");
 		}
@@ -39,7 +39,7 @@ pub fn result(agent: &mut Agent, data: Data) {
 pub fn progress(agent: &mut Agent, data: Data, alive: usize, n: usize, iters: usize) {
 	// Collect errors for training & validation data sets
 	let mut error = Error::new();
-	for i in 0..data.len()-INPS_SIZE*2 {
+	for i in 0..data.len()-SPAN_SIZE {
 		// Run agent
 		let tgt = data[i+INPS_SIZE];
 		let out = ai::run(agent, &data[i..i+INPS_SIZE], tgt, false);
