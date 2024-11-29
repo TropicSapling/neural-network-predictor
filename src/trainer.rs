@@ -1,6 +1,7 @@
 use crate::{agent::*, ai, ai::Error, data::*, debug};//, helpers::rand_range};
 use crate::consts::*;
 
+// TODO: Increase training set size - should be 4x larger than validation set
 // TODO: also save top-train agent for dbg printing
 struct Trainer {
 	data: Data,
