@@ -25,6 +25,15 @@ impl std::ops::AddAssign for Error {
 	}
 }
 
+impl std::ops::SubAssign for Error {
+	fn sub_assign(&mut self, other: Self) {
+		*self = Self {
+			max: self.max - other.max,
+			avg: self.avg - other.avg,
+		}
+	}
+}
+
 ////////////////////////////////////////////////////////////////
 
 pub fn train(agent: &mut Agent, data: &[DataRow]) -> Error {
