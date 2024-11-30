@@ -76,6 +76,7 @@ impl Trainer {
 		}
 
 		// Run against validation set (cross-validation)
+		// TODO: only validate `agents[top_train]`
 		let val_errsum = self.validate(agents);
 
 		// If got poor validation error...
@@ -86,6 +87,8 @@ impl Trainer {
 			// ... switch training set
 			self.pstart = (self.pstart + SPAN_SIZE) % (SPAN_SIZE * PARTITIONS);
 			self.errsum = val_errsum;
+
+			// TODO: re-run all agents for new train set
 
 			// ... and reset validation error
 			self.valerr = Error::max()
