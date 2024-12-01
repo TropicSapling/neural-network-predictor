@@ -56,10 +56,12 @@ impl Trainer {
 		agents.truncate(128);
 	}
 
-	fn validate(&mut self, agent: &mut Agent) {
+	fn validate(&mut self, agents: &mut Vec<Agent>) {
 		self.pstart += TRAINSPAN;
 
-		ai::test(agent, self.tests_data());
+		for agent in agents {
+			ai::test(agent, self.tests_data());
+		}
 
 		self.pstart -= TRAINSPAN;
 	}
@@ -69,10 +71,13 @@ impl Trainer {
 		let top_train = Self::best_of(agents);
 
 		// Backup training error
-		let top_train_err = agents[top_train].error.clone();
+		let mut train_errs = vec![];
+		for agent in &*agents {
+			train_errs.push(agent.error.clone())
+		}
 
 		// Run against validation set (cross-validation)
-		self.validate(&mut agents[top_train]);
+		self.validate(agents);
 
 		// If got poor validation error...
 		if agents[top_train].error.avg > self.valerr.avg {
@@ -95,7 +100,15 @@ impl Trainer {
 			self.valerr = agents[top_train].error.clone();
 
 			// ... and restore training error
-			agents[top_train].error = top_train_err
+			self.errsum = Error::new();
+			for (i, agent) in agents.iter_mut().enumerate() {
+				agent.error = train_errs[i].clone();
+
+				self.errsum += Error {
+					max: 1.0/agent.error.max,
+					avg: 1.0/agent.error.avg
+				} // NEEDED but why???
+			}
 		}
 	}
 }
@@ -124,8 +137,8 @@ pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 
 		// Once in a while, prune and validate (end epoch)
 		if n % 256 == 0 {
+			trainer.optimise(agents); // NEEDS TO BE FIRST (why???)
 			trainer.crossval(agents);
-			trainer.optimise(agents);
 
 			let agents_alive = agents.len();
 
