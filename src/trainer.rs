@@ -59,12 +59,10 @@ impl Trainer {
 		agents.truncate(128);
 	}
 
-	fn validate(&mut self, agents: &mut Vec<Agent>) {
+	fn validate(&mut self, agent: &mut Agent) {
 		self.pstart += TRAINSPAN;
 
-		for agent in agents {
-			ai::test(agent, self.tests_data());
-		}
+		ai::test(agent, self.tests_data());
 
 		self.pstart -= TRAINSPAN;
 	}
@@ -74,13 +72,10 @@ impl Trainer {
 		let top_train = Self::best_of(agents);
 
 		// Backup training error
-		let mut train_errs = vec![];
-		for agent in &*agents {
-			train_errs.push(agent.error.clone())
-		}
+		let top_train_err = agents[top_train].error.clone();
 
 		// Run against validation set (cross-validation)
-		self.validate(agents);
+		self.validate(&mut agents[top_train]);
 
 		// If got poor validation error...
 		if agents[top_train].error.avg > self.valerr.avg {
@@ -103,9 +98,7 @@ impl Trainer {
 			self.valerr = agents[top_train].error.clone();
 
 			// ... and restore training error
-			for (i, agent) in agents.iter_mut().enumerate() {
-				agent.error = train_errs[i].clone()
-			}
+			agents[top_train].error = top_train_err
 		}
 	}
 }
