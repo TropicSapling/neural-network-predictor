@@ -51,7 +51,10 @@ impl Trainer {
 	fn optimise(&mut self, agents: &mut Vec<Agent>) {
 		Self::sort(agents);
 		for agent in &agents[128..] {
-			self.errsum -= agent.error.clone()
+			self.errsum -= Error {
+				max: 1.0/agent.error.max,
+				avg: 1.0/agent.error.avg
+			}
 		}
 		agents.truncate(128);
 	}
@@ -100,14 +103,8 @@ impl Trainer {
 			self.valerr = agents[top_train].error.clone();
 
 			// ... and restore training error
-			self.errsum = Error::new();
 			for (i, agent) in agents.iter_mut().enumerate() {
-				agent.error = train_errs[i].clone();
-
-				self.errsum += Error {
-					max: 1.0/agent.error.max,
-					avg: 1.0/agent.error.avg
-				} // NEEDED but why???
+				agent.error = train_errs[i].clone()
 			}
 		}
 	}
@@ -131,7 +128,7 @@ pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 			continue // discard slow agents
 		}
 		// ... add its error
-		trainer.errsum += err;
+		if trainer.errsum.avg != f64::INFINITY {trainer.errsum += err}
 		// ... and save it
 		agents.push(agent);
 
