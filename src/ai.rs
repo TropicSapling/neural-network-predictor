@@ -3,12 +3,16 @@ use crate::{agent::*, consts::*, data::*, input, output};
 #[derive(Clone, Debug)]
 pub struct Error {
 	pub max: f64,
-	pub tot: f64
+	pub avg: f64
 }
 
 impl Error {
 	pub fn new() -> Self {
-		Error {max: 0.0, tot: 0.0}
+		Error {max: 0.0, avg: 0.0}
+	}
+
+	pub fn max() -> Self {
+		Error {max: f64::MAX, avg: f64::MAX}
 	}
 }
 
@@ -16,7 +20,16 @@ impl std::ops::AddAssign for Error {
 	fn add_assign(&mut self, other: Self) {
 		*self = Self {
 			max: self.max + other.max,
-			tot: self.tot + other.tot,
+			avg: self.avg + other.avg,
+		}
+	}
+}
+
+impl std::ops::SubAssign for Error {
+	fn sub_assign(&mut self, other: Self) {
+		*self = Self {
+			max: self.max - other.max,
+			avg: self.avg - other.avg,
 		}
 	}
 }
@@ -25,29 +38,31 @@ impl std::ops::AddAssign for Error {
 
 pub fn train(agent: &mut Agent, data: &[DataRow]) -> Error {
 	agent.error = Error::new();
-	for i in 0..TEST_SIZE {
+	for i in 0..data.len()-INPS_SIZE {
 		let inp = &data[i..i+INPS_SIZE];
 		let tgt = data[i+INPS_SIZE];
 		let res = run(agent, inp, tgt, true);
 
 		agent.brain.backprop(res, tgt)
 	}
+	agent.error.avg /= (data.len() - INPS_SIZE) as f64;
 
 	Error {
 		max: 1.0/agent.error.max,
-		tot: 1.0/agent.error.tot
+		avg: 1.0/agent.error.avg
 	}
 }
 
 pub fn test(agent: &mut Agent, data: &[DataRow]) -> Error {
 	agent.error = Error::new();
-	for i in 0..TEST_SIZE {
+	for i in 0..data.len()-INPS_SIZE {
 		run(agent, &data[i..i+INPS_SIZE], data[i+INPS_SIZE], true);
 	}
+	agent.error.avg /= (data.len() - INPS_SIZE) as f64;
 
 	Error {
 		max: 1.0/agent.error.max,
-		tot: 1.0/agent.error.tot
+		avg: 1.0/agent.error.avg
 	}
 }
 
@@ -83,8 +98,8 @@ pub fn run(agent: &mut Agent, inp: &[DataRow], aim: DataRow, save: bool) -> Data
 	agent.brain.discharge();
 
 	if save {
-		// Record total & max errors
-		agent.error.tot += err1;
+		// Record average & maximum errors
+		agent.error.avg += err1;
 		if err1 > agent.error.max {
 			agent.error.max = err1
 		}

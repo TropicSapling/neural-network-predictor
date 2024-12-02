@@ -1,11 +1,14 @@
 use crate::{agent::*, ai, ai::Error, data::*, debug};//, helpers::rand_range};
 use crate::consts::*;
 
+const TRAINSPAN: usize = TEST_SIZE*4 + INPS_SIZE;
+
 struct Trainer {
 	data: Data,
 
-	partit: usize,
-	errsum: Error
+	pstart: usize,
+	errsum: Error,
+	valerr: Error
 }
 
 
@@ -18,69 +21,84 @@ impl Trainer {
 		Trainer {
 			data,
 
-			partit: 0,
-			errsum: Error::new()
+			pstart: 0,
+			errsum: Error::new(),
+			valerr: Error::max()
 		}
 	}
 
 	fn rank(agent: &Agent) -> (f64, f64, isize, std::time::Duration) {
-		(agent.error.tot, agent.error.max, -agent.brain.gen, agent.runtime)
+		(agent.error.avg, agent.error.max, -agent.brain.gen, agent.runtime)
 	}
 
-	fn data(&self) -> &[DataRow] {
-		let size = TEST_SIZE + INPS_SIZE;
-
-		&self.data[self.partit*size..(self.partit+1)*size]
+	fn data(&self, size: usize) -> &[DataRow] {
+		&self.data[self.pstart..self.pstart+size]
 	}
+
+	fn train_data(&self) -> &[DataRow] {self.data(TRAINSPAN)}
+	fn tests_data(&self) -> &[DataRow] {self.data(SPAN_SIZE)}
 
 	fn sort(agents: &mut Vec<Agent>) {
 		agents.sort_by(|a, b| Self::rank(a).partial_cmp(&Self::rank(b)).unwrap())
 	}
 
-	fn optimise(&self, agents: &mut Vec<Agent>) {
+	fn best_of(agents: &Vec<Agent>) -> usize {
+		agents.iter().enumerate()
+			.min_by(|(_,a), (_,b)| Self::rank(a).partial_cmp(&Self::rank(b)).unwrap())
+			.map(|(i,_)| i).unwrap()
+	}
+
+	fn optimise(&mut self, agents: &mut Vec<Agent>) {
 		Self::sort(agents);
+		for agent in &agents[128..] {
+			self.errsum -= Error {
+				max: 1.0/agent.error.max,
+				avg: 1.0/agent.error.avg
+			}
+		}
 		agents.truncate(128);
 	}
 
-	fn validate(&mut self, agents: &mut Vec<Agent>) -> Error {
-		let mut errsum = Error::new();
+	fn validate(&mut self, agent: &mut Agent) {
+		self.pstart += TRAINSPAN;
 
-		self.partit += 1;
-		for agent in agents {
-			errsum += ai::test(agent, self.data())
-		}
-		self.partit -= 1;
+		ai::test(agent, self.tests_data());
 
-		errsum
+		self.pstart -= TRAINSPAN;
 	}
 
 	fn crossval(&mut self, agents: &mut Vec<Agent>) {
-		// Backup training errors
-		let mut train_errs = vec![];
-		for agent in &*agents {
-			train_errs.push(agent.error.clone())
-		}
+		// Get top-performing agent
+		let top_train = Self::best_of(agents);
+
+		// Backup training error
+		let top_train_err = agents[top_train].error.clone();
 
 		// Run against validation set (cross-validation)
-		let val_errsum = self.validate(agents);
+		self.validate(&mut agents[top_train]);
 
-		if agents[0].error.max > train_errs[0].max {
-			// Switch training set if performance was poor
-			self.partit = (self.partit + 1) % PARTITIONS;
-			self.errsum = val_errsum;
+		// If got poor validation error...
+		if agents[top_train].error.avg > self.valerr.avg {
+			// ... discard all agents of this epoch
+			agents.truncate(128);
 
-			Self::sort(agents)
-		} else {
-			// Otherwise restore training errors
+			// ... switch training set
+			self.pstart = (self.pstart + SPAN_SIZE) % (SPAN_SIZE * PARTITIONS);
+
+			// ... reset errors
 			self.errsum = Error::new();
-			for (i, agent) in agents.iter_mut().enumerate() {
-				agent.error = train_errs[i].clone();
+			self.valerr = Error::max();
 
-				self.errsum += Error {
-					max: 1.0/agent.error.max,
-					tot: 1.0/agent.error.tot
-				}
+			// ... and finally re-train all agents
+			for agent in agents {
+				self.errsum += ai::train(agent, self.train_data())
 			}
+		} else {
+			// Otherwise, save new validation error...
+			self.valerr = agents[top_train].error.clone();
+
+			// ... and restore training error
+			agents[top_train].error = top_train_err
 		}
 	}
 }
@@ -93,38 +111,38 @@ impl Trainer {
 pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 	let mut trainer = Trainer::from(data);
 
-	//let mut maxerr = f64::MAX;
+	//let mut avgerr = f64::MAX;
 	for n in 1..=iterations {
 		let mut agent = Agent::from(&agents, &trainer.errsum);
 
 		// Train the agent...
-		let err = ai::train(&mut agent, trainer.data());
+		let err = ai::train(&mut agent, trainer.train_data());
 		if agent.runtime.as_micros() > 15 {
 			continue // discard slow agents
 		}
 		// ... add its error
-		trainer.errsum += err;
+		if trainer.errsum.avg != f64::INFINITY {trainer.errsum += err}
 		// ... and save it
 		agents.push(agent);
 
-		// Once in a while, prune and validate
+		// Once in a while, prune and validate (end epoch)
 		if n % 256 == 0 {
-			trainer.optimise(agents);
 			trainer.crossval(agents);
+			trainer.optimise(agents);
 
 			let agents_alive = agents.len();
 
 			debug::progress(&mut agents[0], data, agents_alive, n, iterations)
 		}
 
-		/*if maxerr == f64::MAX {
-			maxerr = agents.last().unwrap().error.max
+		/*if avgerr == f64::MAX {
+			avgerr = agents.last().unwrap().error.avg
 		}
 
 		for _ in 0..agents.len()/128 {
 			// Randomly select an agent to potentially remove
 			let i = rand_range(0..agents.len());
-			if rand_range(0.0..1.0) < agents[i].error.max/maxerr && agents.len() > 8 {
+			if rand_range(0.0..1.0) < agents[i].error.avg/avgerr && agents.len() > 8 {
 				agents.swap_remove(i);
 			}
 		}*/
