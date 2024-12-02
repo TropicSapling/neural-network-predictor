@@ -127,8 +127,8 @@ pub fn train(agents: &mut Vec<Agent>, data: Data, iterations: usize) {
 
 		// Once in a while, prune and validate (end epoch)
 		if n % 256 == 0 {
-			trainer.optimise(agents); // NEEDS TO BE FIRST (why???)
 			trainer.crossval(agents);
+			trainer.optimise(agents);
 
 			let agents_alive = agents.len();
 
