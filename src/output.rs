@@ -7,16 +7,16 @@ pub fn assign(predictions: &mut DataRow, output: &mut Slice<usize, Neuron>) {
 
 		let excitation = out.excitation;
 		// Reset excitation
-		out.excitation = 0.0;
+		out.excitation = 0;
 
 		// If neuron activated...
 		if excitation >= out.act_threshold {
 			// ... activate the connections
 			for conn in &out.next_conn {
 				if conn.relu {
-					predictions[id - INPS] += conn.weight * excitation
+					predictions[id - INPS] += (conn.weight * excitation) as f64
 				} else {
-					predictions[id - INPS] += conn.weight
+					predictions[id - INPS] += conn.weight as f64
 				}
 			}
 		}

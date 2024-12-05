@@ -26,8 +26,8 @@ pub struct Brain {
 
 #[derive(Clone)]
 pub struct Neuron {
-	pub excitation    : f64, // TODO: change to isize?
-	pub act_threshold : f64, // TODO: change to isize?
+	pub excitation    : isize,
+	pub act_threshold : isize,
 
 	pub prev_conn: Vec<usize>,
 	pub next_conn: Vec<OutwardConn>,
@@ -38,8 +38,8 @@ pub struct Neuron {
 #[derive(Clone, Debug)]
 pub struct OutwardConn {
 	pub dst_id: usize,
-	pub weight: f64,
-	pub charge: f64,
+	pub weight: isize,
+	pub charge: isize,
 
 	pub relu: bool
 }
@@ -114,7 +114,7 @@ impl Brain {
 
 	pub fn discharge(&mut self) {
 		for neuron in self.neurons.values_mut() {
-			neuron.excitation = 0.0
+			neuron.excitation = 0
 		}
 	}
 
@@ -140,7 +140,7 @@ impl Brain {
 		// Save excitation before reset
 		let excitation = neuron.excitation;
 		// Reset excitation
-		neuron.excitation = 0.0;
+		neuron.excitation = 0;
 
 		// If neuron activated...
 		if excitation >= neuron.act_threshold {
@@ -160,7 +160,7 @@ impl Brain {
 
 					recv_neuron.excitation += conn.charge
 				} else {
-					conn.weight = 0.0 // disable connection if broken
+					conn.weight = 0 // disable connection if broken
 				}
 			}
 
@@ -222,7 +222,7 @@ impl Brain {
 
 				let rand_weight = &mut self.neurons[rand].next_conn.rand().weight;
 
-				Neuron::expand_or_shrink(rand_weight, -1.0)
+				Neuron::expand_or_shrink(rand_weight, -1)
 			}
 		}
 
@@ -294,8 +294,8 @@ impl Brain {
 impl Neuron {
 	fn new(typ: NeuronType) -> Self {
 		Neuron {
-			excitation    : 0.0,
-			act_threshold : 0.0,
+			excitation    : 0,
+			act_threshold : 0,
 
 			prev_conn: vec![],
 			next_conn: vec![],
@@ -309,7 +309,7 @@ impl Neuron {
 
 		// Mutate activation threshold
 		if Evolution::should_mutate_now() {
-			self.act_threshold += [-1.0, 1.0][rand_range(0..=1)]
+			self.act_threshold += [-1, 1][rand_range(0..=1)]
 		}
 
 		// Mutate connection count
@@ -319,7 +319,7 @@ impl Neuron {
 				add_conn = true
 			} else if self.next_conn.len() > 0 {
 				// Sometimes weaken an existing connection
-				Self::expand_or_shrink(&mut self.next_conn.rand().weight, -1.0)
+				Self::expand_or_shrink(&mut self.next_conn.rand().weight, -1)
 			}
 		}
 
@@ -332,20 +332,20 @@ impl Neuron {
 				} else {
 					if Evolution::should_expand_now() {
 						// Sometimes expand weight
-						Self::expand_or_shrink(&mut conn.weight, 1.0)
+						Self::expand_or_shrink(&mut conn.weight, 1)
 					} else {
 						// Sometimes shrink weight (which can effectively remove)
-						Self::expand_or_shrink(&mut conn.weight, -1.0)
+						Self::expand_or_shrink(&mut conn.weight, -1)
 					}
 				}
 			}
 		}
 
 		// Remove effectively dead connections
-		self.next_conn.retain(|conn| conn.weight != 0.0);
+		self.next_conn.retain(|conn| conn.weight != 0);
 
 		// Reset excitation
-		self.excitation = 0.0;
+		self.excitation = 0;
 
 		add_conn
 	}
@@ -357,17 +357,17 @@ impl Neuron {
 		}
 	}
 
-	fn expand_or_shrink(state: &mut f64, change: f64) {
+	fn expand_or_shrink(state: &mut isize, change: isize) {
 		// Move towards or away from a neutral state of 0
-		if *state > 0.0 {
+		if *state > 0 {
 			*state += change;
-			if *state < 0.0 {
-				*state = 0.0
+			if *state < 0 {
+				*state = 0
 			}
 		} else {
 			*state -= change;
-			if *state > 0.0 {
-				*state = 0.0
+			if *state > 0 {
+				*state = 0
 			}
 		}
 	}
@@ -377,8 +377,8 @@ impl OutwardConn {
 	fn to(dst_id: usize) -> Self {
 		OutwardConn {
 			dst_id,
-			weight: [-1.0, 1.0][rand_range(0..=1)],
-			charge: 0.0,
+			weight: [-1, 1][rand_range(0..=1)],
+			charge: 0,
 
 			relu: [false, true][rand_range(0..=1)]
 		}
@@ -422,12 +422,12 @@ impl fmt::Debug for Neuron {
 			// Mark firing neurons (red = negative response, green = positive)
 			let s = String::from(
 				if is_at >= act_at {
-					let mut total_res = 0.0;
+					let mut total_res = 0;
 					for conn in &self.next_conn {
 						total_res += conn.weight
 					}
 
-					if total_res < 0.0 {"🔴 "} else {"🟢 "}
+					if total_res < 0 {"🔴 "} else {"🟢 "}
 				} else {"✖️ "}
 			);
 
