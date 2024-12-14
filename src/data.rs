@@ -1,10 +1,10 @@
-use std::{error::Error, io::stdin};
+use std::{io::Result, io::stdin};
 use crate::consts::*;
 
 pub type DataRow = [f64; OUTS];
 pub type Data    = [DataRow; DATA_SIZE];
 
-pub fn read_data() -> Result<Data, Box<dyn Error>> {
+pub fn read_data() -> Result<Data> {
 	let mut inp = [[0.0; OUTS]; DATA_SIZE];
 	let mut csv = csv::Reader::from_reader(stdin());
 

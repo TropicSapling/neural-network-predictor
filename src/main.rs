@@ -9,7 +9,7 @@ mod agent;
 mod consts;
 mod helpers;
 
-use std::error::Error;
+use std::io::Result;
 use data::*;
 
 /// TODO: PARALLELISM - bulk data processing
@@ -23,7 +23,7 @@ use data::*;
 /// 1. Collect all `neuron_excitations` and sum them together into `total_excitations`
 /// 2. Assign `total_excitations[neuron]` to each corresponding neuron *in parallel*
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
 	println!("");
 
 	let mut agents = vec![];
@@ -34,7 +34,5 @@ fn main() -> Result<(), Box<dyn Error>> {
 	// note: currently there is practically no improvement beyond 53248*2=106496
 
 	// Print final top agent
-	debug::result(&mut agents[0], input_data);
-
-	Ok(())
+	debug::result(&mut agents[0], input_data)
 }
