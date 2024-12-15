@@ -88,12 +88,17 @@ fn plot(real_data: Data, predicted: Data) -> Result<()> {
 	let mut real_data_vec = vec![];
 	let mut predicted_vec = vec![];
 
+	// Format data for plotting
 	let j = INPS_SIZE;
 	for i in 0..real_data.len() {
 		real_data_vec.push(vec![i     as f64, real_data[i][0], real_data[i][1]]);
 		predicted_vec.push(vec![(i+j) as f64, predicted[i][0], predicted[i][1]]);
 	}
 
+	// Cut off non-existing data (all zeros)
+	predicted_vec.truncate(DATA_SIZE - j);
+
+	// Create chart
 	let chart = Chart::new()
 		.legend(Legend::new().top("bottom"))
 		.x_axis(
@@ -139,8 +144,10 @@ fn plot(real_data: Data, predicted: Data) -> Result<()> {
 				.data(predicted_vec)
 		);
 
+	// Save chart
 	HtmlRenderer::new("chart", 1000, 800).save(&chart, "predict_chart.html").unwrap();
 
+	// Plot chart
 	open::that("predict_chart.html")
 }
 
