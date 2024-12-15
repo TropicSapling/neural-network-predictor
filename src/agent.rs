@@ -401,7 +401,8 @@ impl fmt::Debug for Brain {
 		s += "\tneurons: [\n";
 		for (_id, neuron) in &self.neurons {
 			//s += &format!("\t\t#{id}: {neuron:#?},\n");
-			if neuron.next_conn.len() < 1 {
+			if neuron.next_conn.len() < 1
+			|| (neuron.prev_conn.len() < 1 && neuron.act_threshold > 0) {
 				inactives += 1
 			}
 		} s += &format!("\t\t... ({})\n", self.neurons.len());
@@ -414,7 +415,8 @@ impl fmt::Debug for Brain {
 impl fmt::Debug for Neuron {
 	// Print neuron debug info in a concise way
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		if self.next_conn.len() < 1 {
+		if self.next_conn.len() < 1
+		|| (self.prev_conn.len() < 1 && self.act_threshold > 0) {
 			write!(f, "➖ Neuron {{INACTIVE}}")
 		} else {
 			let (is_at, act_at) = (self.excitation, self.act_threshold);
