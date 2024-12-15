@@ -85,28 +85,87 @@ fn plot(real_data: Data, predicted: Data) -> Result<()> {
 	use charming::{component::*, element::*, series::*, Chart, HtmlRenderer};
 	use open;
 
+	let mut real_data_vec = vec![];
+	let mut predicted_vec = vec![];
+
+	let j = INPS_SIZE;
+	for i in 0..real_data.len() {
+		real_data_vec.push(vec![i     as f64, real_data[i][0], real_data[i][1]]);
+		predicted_vec.push(vec![(i+j) as f64, predicted[i][0], predicted[i][1]]);
+	}
+
 	let chart = Chart::new()
 		.legend(Legend::new().top("bottom"))
+		.x_axis(
+			Axis::new()
+				.type_(AxisType::Category)
+				.data(vec![""; real_data.len()])
+				.boundary_gap(false)
+				.axis_line(AxisLine::new().on_zero(false))
+				.split_line(SplitLine::new().show(false))
+				.min("dataMin")
+				.max("dataMax")
+				.axis_pointer(AxisPointer::new().z(100)),
+		)
+		.y_axis(
+			Axis::new()
+				.scale(true)
+				.split_area(SplitArea::new().show(true)),
+		)
 		.series(
-			Pie::new()
-				.name("Nightingale Chart")
-				.rose_type(PieRoseType::Radius)
-				.radius(vec!["50", "250"])
-				.center(vec!["50%", "50%"])
-				.item_style(ItemStyle::new().border_radius(8))
-				.data(vec![
-					(40.0, "rose 1"),
-					(38.0, "rose 2"),
-					(32.0, "rose 3"),
-					(30.0, "rose 4"),
-					(28.0, "rose 5"),
-					(26.0, "rose 6"),
-					(22.0, "rose 7"),
-					(18.0, "rose 8"),
-				]),
+			Custom::new()
+				.name("Actual")
+				.dimensions(vec!["-", "lowest", "highest"])
+				.encode(
+					DimensionEncode::new()
+						.x(0)
+						.y(vec![1, 2])
+						.tooltip(vec![1, 2])
+				)
+				.render_item(RENDER_ITEM)
+				.data(real_data_vec)
+		)
+		.series(
+			Custom::new()
+				.name("Predicted")
+				.dimensions(vec!["-", "lowest", "highest"])
+				.encode(
+					DimensionEncode::new()
+						.x(0)
+						.y(vec![1, 2])
+						.tooltip(vec![1, 2])
+				)
+				.render_item(RENDER_ITEM)
+				.data(predicted_vec)
 		);
 
 	HtmlRenderer::new("chart", 1000, 800).save(&chart, "predict_chart.html").unwrap();
 
 	open::that("predict_chart.html")
 }
+
+static RENDER_ITEM: &str = r#"
+function (params, api) {
+	var xValue = api.value(0);
+	var lowPoint = api.coord([xValue, api.value(1)]);
+	var highPoint = api.coord([xValue, api.value(2)]);
+	var style = api.style({
+		stroke: api.visual('color')
+	});
+	return {
+		type: 'group',
+		children: [
+			{
+				type: 'line',
+				shape: {
+					x1: lowPoint[0],
+					y1: lowPoint[1],
+					x2: highPoint[0],
+					y2: highPoint[1]
+				},
+				style: style
+			}
+		]
+	};
+}
+"#;
