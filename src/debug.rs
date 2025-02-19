@@ -1,4 +1,7 @@
 use std::io::{stdout, Write, Result};
+use charming::{component::*, element::*, series::*, Chart, HtmlRenderer};
+use open;
+
 use crate::{ai, ai::*, agent::*, consts::*, data::*};
 
 pub fn result(agent: &mut Agent, data: Data) -> Result<()> {
@@ -82,16 +85,19 @@ pub fn progress(agent: &mut Agent, data: Data, alive: usize, n: usize, iters: us
 ////////////////////////////////////////////////////////////////
 
 fn plot(real_data: Data, predicted: Data) -> Result<()> {
-	use charming::{component::*, element::*, series::*, Chart, HtmlRenderer};
-	use open;
-
-	let mut real_data_vec = vec![];
+	let mut train_dat_vec = vec![];
+	let mut test_data_vec = vec![];
 	let mut predicted_vec = vec![];
 
 	// Format data for plotting
 	let j = INPS_SIZE;
 	for i in 0..real_data.len() {
-		real_data_vec.push(vec![i     as f64, real_data[i][0], real_data[i][1]]);
+		if i < real_data.len() - SPAN_SIZE {
+			train_dat_vec.push(vec![i as f64, real_data[i][0], real_data[i][1]]);
+		} else {
+			test_data_vec.push(vec![i as f64, real_data[i][0], real_data[i][1]]);
+		}
+
 		predicted_vec.push(vec![(i+j) as f64, predicted[i][0], predicted[i][1]]);
 	}
 
@@ -110,45 +116,29 @@ fn plot(real_data: Data, predicted: Data) -> Result<()> {
 				.split_line(SplitLine::new().show(false))
 				.min("dataMin")
 				.max("dataMax")
-				.axis_pointer(AxisPointer::new().z(100)),
+				.axis_pointer(AxisPointer::new().z(100))
 		)
 		.y_axis(
 			Axis::new()
 				.scale(true)
-				.split_area(SplitArea::new().show(true)),
+				.split_area(SplitArea::new().show(true))
 		)
-		.series(
-			Custom::new()
-				.name("Actual")
-				.dimensions(vec!["-", "lowest", "highest"])
-				.encode(
-					DimensionEncode::new()
-						.x(0)
-						.y(vec![1, 2])
-						.tooltip(vec![1, 2])
-				)
-				.render_item(RENDER_ITEM)
-				.data(real_data_vec)
-		)
-		.series(
-			Custom::new()
-				.name("Predicted")
-				.dimensions(vec!["-", "lowest", "highest"])
-				.encode(
-					DimensionEncode::new()
-						.x(0)
-						.y(vec![1, 2])
-						.tooltip(vec![1, 2])
-				)
-				.render_item(RENDER_ITEM)
-				.data(predicted_vec)
-		);
+		.series(minmax_series().name("Train").data(train_dat_vec))
+		.series(minmax_series().name("Test").data(test_data_vec))
+		.series(minmax_series().name("Prediction").data(predicted_vec));
 
 	// Save chart
 	HtmlRenderer::new("chart", 1000, 800).save(&chart, "predict_chart.html").unwrap();
 
 	// Plot chart
 	open::that("predict_chart.html")
+}
+
+fn minmax_series() -> Custom {
+	Custom::new()
+		.dimensions(vec!["-", "lowest", "highest"])
+		.encode(DimensionEncode::new().x(0).y(vec![1, 2]).tooltip(vec![1, 2]))
+		.render_item(RENDER_ITEM)
 }
 
 static RENDER_ITEM: &str = r#"
