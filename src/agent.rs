@@ -21,7 +21,7 @@ pub struct Brain {
 	neurons: IndexMap<usize, Neuron>,
 	next_id: usize,
 
-	pub gen: isize
+	pub r#gen: isize
 }
 
 #[derive(Clone)]
@@ -240,11 +240,11 @@ impl Brain {
 		self.neurons.get_mut(&id).unwrap().next_conn.push(conn)
 	}
 
-	fn new(n: usize, gen: isize) -> Self {
+	fn new(n: usize, r#gen: isize) -> Self {
 		let mut brain = Brain {
 			neurons: IndexMap::new(),
 			next_id: n,
-			gen
+			r#gen
 		};
 
 		// Create neurons
@@ -270,7 +270,7 @@ impl Brain {
 		let minlen = brain1.neurons.len().min(brain2.neurons.len());
 		let maxlen = brain1.neurons.len().max(brain2.neurons.len());
 
-		let mut brain = Brain::new(maxlen, brain1.gen.max(brain2.gen) + 1);
+		let mut brain = Brain::new(maxlen, brain1.r#gen.max(brain2.r#gen) + 1);
 
 		// Merge initial neurons
 		for i in 0..minlen {
@@ -408,7 +408,7 @@ impl fmt::Debug for Brain {
 		} s += &format!("\t\t... ({})\n", self.neurons.len());
 		s += &format!("\n\t\t(inactive: {inactives})\n");
 
-		write!(f, "{s}\t],\n\n\tgen: {},\n}}", self.gen)
+		write!(f, "{s}\t],\n\n\tgen: {},\n}}", self.r#gen)
 	}
 }
 

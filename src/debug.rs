@@ -70,7 +70,7 @@ pub fn progress(agent: &mut Agent, data: Data, alive: usize, n: usize, iters: us
 	// Prepare for formatting
 	let maxerr = error.max;
 	let avgerr = error.avg;
-	let gen    = agent.brain.gen;
+	let r#gen  = agent.brain.r#gen;
 	let t      = agent.runtime;
 
 	// Format errors and other information
